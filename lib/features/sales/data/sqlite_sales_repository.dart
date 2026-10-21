@@ -15,6 +15,7 @@ class SqliteSalesRepository implements SalesRepository {
     required int quantity,
     required int unitSalePrice,
     required DateTime date,
+    PaymentMethod paymentMethod = PaymentMethod.cash,
   }) async {
     try {
       final db = await database.instance;
@@ -72,6 +73,7 @@ class SqliteSalesRepository implements SalesRepository {
           quantity: quantity,
           actualUnitSalePrice: unitSalePrice,
           frozenUnitLandedCost: frozenCost,
+          paymentMethod: paymentMethod,
         );
         await txn.insert('sales', {
           'id': id,
@@ -82,6 +84,7 @@ class SqliteSalesRepository implements SalesRepository {
           'actual_unit_sale_price': unitSalePrice,
           'frozen_unit_landed_cost': frozenCost,
           'status': SaleStatus.validated.name,
+          'payment_method': paymentMethod.name,
         });
         for (final allocation in allocations) {
           await txn.insert('sale_allocations', {
@@ -155,6 +158,9 @@ class SqliteSalesRepository implements SalesRepository {
     actualUnitSalePrice: row['actual_unit_sale_price']! as int,
     frozenUnitLandedCost: row['frozen_unit_landed_cost']! as int,
     status: SaleStatus.values.byName(row['status']! as String),
+    paymentMethod: PaymentMethod.values.byName(
+      (row['payment_method'] as String?) ?? PaymentMethod.cash.name,
+    ),
   );
 
   @override

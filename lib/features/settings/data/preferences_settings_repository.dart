@@ -12,12 +12,18 @@ class PreferencesSettingsRepository implements SettingsRepository {
     try {
       final prefs = await SharedPreferences.getInstance();
       final last = prefs.getString('lastBackupAt');
+      final savedTheme = prefs.getString('themeMode');
+      // Les anciennes installations avaient « système » par défaut. On les
+      // bascule une fois vers clair ; un choix ultérieur reste explicite.
+      final isLegacyTheme =
+          savedTheme == AppThemeMode.system.name &&
+          !prefs.containsKey('themeModeExplicit');
       return Success(
         AppSettings(
           currency: prefs.getString('currency') ?? 'FCFA',
-          themeMode: AppThemeMode.values.byName(
-            prefs.getString('themeMode') ?? 'system',
-          ),
+          themeMode: savedTheme == null || isLegacyTheme
+              ? AppThemeMode.light
+              : AppThemeMode.values.byName(savedTheme),
           pinEnabled: prefs.getBool('pinEnabled') ?? false,
           biometricEnabled: prefs.getBool('biometricEnabled') ?? false,
           lowStockThreshold: prefs.getInt('lowStockThreshold') ?? 3,
@@ -37,6 +43,7 @@ class PreferencesSettingsRepository implements SettingsRepository {
       await Future.wait([
         prefs.setString('currency', settings.currency),
         prefs.setString('themeMode', settings.themeMode.name),
+        prefs.setBool('themeModeExplicit', true),
         prefs.setBool('pinEnabled', settings.pinEnabled),
         prefs.setBool('biometricEnabled', settings.biometricEnabled),
         prefs.setInt('lowStockThreshold', settings.lowStockThreshold),

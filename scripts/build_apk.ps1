@@ -14,10 +14,10 @@ flutter build apk --release
 flutter build apk --release --split-per-abi
 
 New-Item -ItemType Directory -Force -Path "dist" | Out-Null
-Copy-Item "build/app/outputs/flutter-apk/app-release.apk" "dist/pasora-v$version.apk" -Force
+Copy-Item "build/app/outputs/flutter-apk/app-release.apk" "dist/pems-store-v$version.apk" -Force
 Get-ChildItem "build/app/outputs/flutter-apk/app-*-release.apk" | ForEach-Object {
   if ($_.Name -match '^app-(.+)-release\.apk$') {
-    Copy-Item $_.FullName "dist/pasora-v$version-$($Matches[1]).apk" -Force
+    Copy-Item $_.FullName "dist/pems-store-v$version-$($Matches[1]).apk" -Force
   }
 }
 Write-Host "APK disponibles dans dist/"

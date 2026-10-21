@@ -145,7 +145,7 @@ class ZipBackupRepository implements BackupRepository {
       final version = metadata['schemaVersion'] as int? ?? 0;
       if (version > AppDatabase.schemaVersion) {
         throw StateError(
-          'Cette sauvegarde nécessite une version plus récente de Pasora.',
+          'Cette sauvegarde nécessite une version plus récente de PeMS Store.',
         );
       }
       await create(

@@ -15,11 +15,11 @@ flutter build apk --release
 flutter build apk --release --split-per-abi
 
 mkdir -p dist
-cp build/app/outputs/flutter-apk/app-release.apk "dist/pasora-v${version}.apk"
+cp build/app/outputs/flutter-apk/app-release.apk "dist/pems-store-v${version}.apk"
 for apk in build/app/outputs/flutter-apk/app-*-release.apk; do
   [ -f "$apk" ] || continue
   abi="$(basename "$apk" | sed -E 's/app-(.*)-release.apk/\1/')"
-  cp "$apk" "dist/pasora-v${version}-${abi}.apk"
+  cp "$apk" "dist/pems-store-v${version}-${abi}.apk"
 done
 
 echo "APK disponibles dans dist/"

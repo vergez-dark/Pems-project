@@ -1,17 +1,17 @@
 <p align="center">
-  <img src="assets/branding/pasora_logo.svg" width="460" alt="Pasora — Vos pas, vos profits">
+  <img src="assets/branding/pems_logo.svg" width="460" alt="PeMS Store — Gestion commerciale et boutiques">
 </p>
 
-# Pasora
+# PeMS Store
 
-Application Android hors connexion de gestion de stock, ventes et rentabilité pour boutiques de chaussures. Pasora suit les variantes et les lots en FIFO, calcule les commissions des vendeuses, produit les bilans hebdomadaires et sauvegarde base et photos dans l'espace privé Google Drive de l'utilisateur.
+Application Android hors connexion de gestion de stock, ventes et rentabilité pour boutiques de chaussures. PeMS Store suit les variantes et les lots en FIFO, calcule les commissions des vendeuses, produit les bilans hebdomadaires et sauvegarde base et photos dans l'espace privé Google Drive de l'utilisateur.
 
 ## Installer
 
 L'APK universel signé est prêt à installer :
 
-- [Télécharger Pasora 1.0.0](dist/pasora-v1.0.0.apk)
-- APK optimisés : [arm64-v8a](dist/pasora-v1.0.0-arm64-v8a.apk), [armeabi-v7a](dist/pasora-v1.0.0-armeabi-v7a.apk), [x86_64](dist/pasora-v1.0.0-x86_64.apk)
+- [Télécharger PeMS Store 1.0.0](dist/pems-store-v1.0.0.apk)
+- APK optimisés : [arm64-v8a](dist/pems-store-v1.0.0-arm64-v8a.apk), [armeabi-v7a](dist/pems-store-v1.0.0-armeabi-v7a.apk), [x86_64](dist/pems-store-v1.0.0-x86_64.apk)
 
 Sur Android, autoriser ponctuellement l'installation depuis la source utilisée pour ouvrir le fichier. `arm64-v8a` convient à la grande majorité des téléphones récents ; l'APK universel est le choix simple si l'architecture est inconnue.
 
@@ -36,12 +36,20 @@ Sur Android, autoriser ponctuellement l'installation depuis la source utilisée 
 
 ## Développement
 
-Prérequis : Flutter 3.47.7 stable ou compatible, Dart 3.13+, Android SDK 36 et JDK 17.
+Prérequis : Flutter 3.47.7 stable ou compatible et Dart 3.13+. Pour Android, Android SDK 36 et JDK 17. Pour Linux, les bibliothèques GTK 3 et les outils CMake, Ninja et Clang.
 
 ```bash
 flutter pub get
 flutter run
 ```
+
+Lancer l’application desktop Linux :
+
+```bash
+flutter run -d linux
+```
+
+La base SQLite fonctionne en mode FFI sur Linux. Les sauvegardes y sont locales ; la sauvegarde Google Drive reste disponible sur Android.
 
 Jeu de démonstration, uniquement en debug :
 
@@ -114,4 +122,4 @@ Le code suit `presentation → domain ← data`. Le domaine est du Dart pur ; l'
 
 ## Confidentialité
 
-Pasora ne possède aucun backend et n'intègre aucune télémétrie. Les données restent dans le sandbox Android ; seules les archives demandées sont envoyées dans `drive.appdata` du compte Google choisi. Les rapports vendeuse omettent volontairement achats et marges.
+PeMS Store ne possède aucun backend et n'intègre aucune télémétrie. Les données restent dans le sandbox Android ; seules les archives demandées sont envoyées dans `drive.appdata` du compte Google choisi. Les rapports vendeuse omettent volontairement achats et marges.

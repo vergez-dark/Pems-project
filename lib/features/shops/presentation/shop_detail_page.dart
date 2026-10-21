@@ -337,6 +337,7 @@ class _SalesTab extends ConsumerWidget {
                                   showMessage(context, f.message, error: true),
                               (_) {
                                 ref.invalidate(catalogProvider(shop.id));
+                                ref.invalidate(globalCatalogProvider);
                                 ref.invalidate(
                                   weeklyReportProvider((
                                     shopId: shop.id,
@@ -589,6 +590,7 @@ class _ProductFormSheetState extends ConsumerState<ProductFormSheet> {
     setState(() => _saving = false);
     result.fold((f) => showMessage(context, f.message, error: true), (_) {
       ref.invalidate(catalogProvider(widget.shopId));
+      ref.invalidate(globalCatalogProvider);
       ref.invalidate(categoriesProvider(widget.shopId));
       Navigator.pop(context);
     });
@@ -748,6 +750,7 @@ class _StockFormSheetState extends ConsumerState<StockFormSheet> {
       },
       (_) {
         ref.invalidate(catalogProvider(widget.shopId));
+        ref.invalidate(globalCatalogProvider);
         ref.invalidate(dashboardProvider);
         Navigator.pop(context);
       },
@@ -916,6 +919,7 @@ class _SaleFormSheetState extends ConsumerState<SaleFormSheet> {
     setState(() => _saving = false);
     result.fold((f) => showMessage(context, f.message, error: true), (_) {
       ref.invalidate(catalogProvider(widget.shop.id));
+      ref.invalidate(globalCatalogProvider);
       ref.invalidate(
         weeklyReportProvider((shopId: widget.shop.id, anchor: DateTime.now())),
       );

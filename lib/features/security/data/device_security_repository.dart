@@ -19,7 +19,7 @@ class DeviceSecurityRepository implements SecurityRepository {
       if (!await _localAuth.canCheckBiometrics) return const Success(false);
       return Success(
         await _localAuth.authenticate(
-          localizedReason: 'Déverrouiller Pasora',
+          localizedReason: 'Déverrouiller PeMS Store',
           biometricOnly: false,
           persistAcrossBackgrounding: true,
         ),

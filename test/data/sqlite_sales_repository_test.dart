@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pasora/core/database/app_database.dart';
 import 'package:pasora/features/sales/data/sqlite_sales_repository.dart';
+import 'package:pasora/features/sales/domain/sale.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
@@ -128,6 +129,37 @@ void main() {
     expect(
       result.fold((f) => f.message, (_) => ''),
       contains('Stock insuffisant'),
+    );
+  });
+
+  test('mémorise le mode de paiement de la vente', () async {
+    final result = await repository.record(
+      id: 'sale-mobile',
+      shopId: 's',
+      variantId: 'v',
+      quantity: 1,
+      unitSalePrice: 12000,
+      date: DateTime(2026, 1, 2),
+      paymentMethod: PaymentMethod.mobileMoney,
+    );
+    expect(
+      result.fold(
+        (failure) => fail(failure.message),
+        (sale) => sale.paymentMethod,
+      ),
+      PaymentMethod.mobileMoney,
+    );
+    final listed = await repository.listForPeriod(
+      's',
+      DateTime(2026),
+      DateTime(2027),
+    );
+    expect(
+      listed.fold(
+        (failure) => fail(failure.message),
+        (sales) => sales.single.paymentMethod,
+      ),
+      PaymentMethod.mobileMoney,
     );
   });
 }

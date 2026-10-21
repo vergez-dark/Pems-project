@@ -9,6 +9,7 @@ abstract interface class SalesRepository {
     required int quantity,
     required int unitSalePrice,
     required DateTime date,
+    PaymentMethod paymentMethod = PaymentMethod.cash,
   });
   Future<Result<void>> cancel(String saleId);
   Future<Result<List<Sale>>> listForPeriod(
@@ -28,6 +29,7 @@ class RecordSale {
     required int quantity,
     required int unitSalePrice,
     required DateTime date,
+    PaymentMethod paymentMethod = PaymentMethod.cash,
   }) {
     if (quantity <= 0 || unitSalePrice < 0) {
       return Future.value(
@@ -41,6 +43,7 @@ class RecordSale {
       quantity: quantity,
       unitSalePrice: unitSalePrice,
       date: date,
+      paymentMethod: paymentMethod,
     );
   }
 }

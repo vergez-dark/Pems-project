@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'app.dart';
@@ -31,21 +32,27 @@ void callbackDispatcher() {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (defaultTargetPlatform == TargetPlatform.linux) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
   await initializeDateFormatting('fr_FR');
-  await Workmanager().initialize(callbackDispatcher);
-  await Workmanager().registerPeriodicTask(
-    'pasora-daily-backup',
-    dailyBackupTask,
-    frequency: const Duration(hours: 24),
-    existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
-    constraints: Constraints(networkType: NetworkType.connected),
-  );
+  if (defaultTargetPlatform != TargetPlatform.linux) {
+    await Workmanager().initialize(callbackDispatcher);
+    await Workmanager().registerPeriodicTask(
+      'pasora-daily-backup',
+      dailyBackupTask,
+      frequency: const Duration(hours: 24),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+      constraints: Constraints(networkType: NetworkType.connected),
+    );
+  }
   if (kDebugMode && const bool.fromEnvironment('PASORA_DEMO')) {
     final database = AppDatabase();
     await DebugSeeder(database).seedIfEmpty();
     await database.close();
   }
-  runApp(const ProviderScope(child: PasoraApp()));
+  runApp(const ProviderScope(child: PemsStoreApp()));
   unawaited(_catchUpBackup());
 }
 
@@ -62,7 +69,7 @@ Future<void> _catchUpBackup() async {
   final result = await ZipBackupRepository(
     database,
     GoogleDriveGateway(allowInteractive: false),
-  ).create();
+  ).create(uploadToDrive: defaultTargetPlatform != TargetPlatform.linux);
   await result.fold(
     (_) async {},
     (record) =>

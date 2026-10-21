@@ -5,7 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/pems_components.dart';
 import '../../../core/widgets/state_views.dart';
+import '../../reports/domain/weekly_report.dart';
+import '../domain/shop.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -14,232 +17,322 @@ class DashboardPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final summary = ref.watch(dashboardProvider);
     return Scaffold(
-      appBar: AppBar(
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Bonjour 👋',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            ),
-            Text('Vue d’ensemble'),
-          ],
-        ),
+      appBar: PemsBrandHeader(
         actions: [
-          IconButton.filledTonal(
+          IconButton(
             onPressed: () => context.push('/backup'),
-            icon: const Icon(Icons.cloud_done_outlined),
-            tooltip: 'Sauvegarde',
+            icon: const Icon(Icons.notifications_none_rounded),
+            tooltip: 'Sauvegarde et alertes',
           ),
-          const SizedBox(width: 16),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: IconButton.filled(
+              onPressed: () => context.push('/settings'),
+              icon: const Icon(Icons.person_outline_rounded),
+              tooltip: 'Profil et réglages',
+            ),
+          ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(dashboardProvider),
+        onRefresh: () async {
+          ref.invalidate(dashboardProvider);
+          ref.invalidate(globalCatalogProvider);
+        },
         child: summary.when(
           loading: () => const LoadingCards(),
           error: (error, _) => ErrorState(
             error: error,
             onRetry: () => ref.invalidate(dashboardProvider),
           ),
-          data: (data) => ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppColors.forest,
-                  borderRadius: BorderRadius.circular(28),
-                  gradient: const LinearGradient(
-                    colors: [AppColors.forest, Color(0xFF246348)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Bénéfice cette semaine',
-                      style: TextStyle(color: Color(0xFFC7DED2), fontSize: 14),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      formatMoney(data.profit),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -1,
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                    Row(
-                      children: [
-                        _HeroStat(
-                          icon: Icons.shopping_bag_outlined,
-                          value: '${data.pairsSold}',
-                          label: 'paires vendues',
-                        ),
-                        const SizedBox(width: 12),
-                        _HeroStat(
-                          icon: Icons.storefront_outlined,
-                          value: '${data.shops.length}',
-                          label: 'boutiques actives',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 18),
-              if (data.lowStock > 0)
-                Card(
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(16),
-                    leading: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.warning.withValues(alpha: .14),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        Icons.warning_amber_rounded,
-                        color: AppColors.warning,
-                      ),
-                    ),
-                    title: Text(
-                      '${data.lowStock} stock${data.lowStock > 1 ? 's' : ''} à surveiller',
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    subtitle: const Text('3 paires ou moins disponibles'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => context.go('/shops'),
-                  ),
-                ),
-              const SizedBox(height: 26),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Vos boutiques',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w900),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => context.go('/shops'),
-                    child: const Text('Tout voir'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (data.shops.isEmpty)
-                Card(
-                  child: EmptyState(
-                    icon: Icons.storefront,
-                    title: 'Créez votre première boutique',
-                    message: 'Ajoutez une vendeuse ou un point de vente pour commencer.',
-                    action: FilledButton(
-                      onPressed: () => context.go('/shops'),
-                      child: const Text('Ajouter une boutique'),
-                    ),
-                  ),
-                )
-              else
-                ...data.shops
-                    .take(4)
-                    .map(
-                      (shop) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Card(
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            leading: CircleAvatar(
-                              child: Text(
-                                shop.name.substring(0, 1).toUpperCase(),
-                              ),
-                            ),
-                            title: Text(
-                              shop.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            subtitle: Text(
-                              shop.sellerName.isEmpty
-                                  ? 'Aucune vendeuse renseignée'
-                                  : shop.sellerName,
-                            ),
-                            trailing: const Icon(Icons.arrow_forward_rounded),
-                            onTap: () => context.push('/shops/${shop.id}'),
-                          ),
-                        ),
-                      ),
-                    ),
-            ],
-          ),
+          data: (data) => _DashboardContent(data: data),
         ),
       ),
     );
   }
 }
 
-class _HeroStat extends StatelessWidget {
-  const _HeroStat({
-    required this.icon,
-    required this.value,
-    required this.label,
-  });
-  final IconData icon;
-  final String value;
-  final String label;
+class _DashboardContent extends StatelessWidget {
+  const _DashboardContent({required this.data});
+  final DashboardSummary data;
+
   @override
-  Widget build(BuildContext context) => Expanded(
-    child: Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .1),
-        borderRadius: BorderRadius.circular(16),
+  Widget build(BuildContext context) => SingleChildScrollView(
+    physics: const AlwaysScrollableScrollPhysics(),
+    padding: const EdgeInsets.fromLTRB(14, 0, 14, 28),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer
+                .withValues(alpha: .32),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const PemsPill(
+                icon: Icons.workspace_premium_outlined,
+                label: 'Propriétaire principal',
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Bonjour 👋',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                data.shops.isEmpty
+                    ? 'Créez votre premier point de vente pour démarrer.'
+                    : 'Supervision de ${data.shops.length} boutique${data.shops.length > 1 ? 's' : ''} • données de la semaine',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        const _PeriodBanner(),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: PemsMetricCard(
+                label: 'Chiffre d’affaires',
+                value: formatMoney(data.revenue),
+                icon: Icons.payments_outlined,
+                detail: 'Semaine en cours',
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: PemsMetricCard(
+                label: 'Bénéfice net',
+                value: formatMoney(data.profit),
+                icon: Icons.account_balance_wallet_outlined,
+                detail: data.revenue == 0
+                    ? 'Aucune vente'
+                    : '${(data.profit * 100 / data.revenue).round()}% de marge',
+                accent: AppColors.gold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: PemsMetricCard(
+                label: 'Paires vendues',
+                value: '${data.pairsSold}',
+                icon: Icons.point_of_sale_outlined,
+                detail: 'Sur la période',
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: PemsMetricCard(
+                label: 'Stock disponible',
+                value: '${data.stockQuantity}',
+                icon: Icons.inventory_2_outlined,
+                detail:
+                    '${data.lowStock} alerte${data.lowStock > 1 ? 's' : ''}',
+                accent: data.lowStock > 0
+                    ? AppColors.warning
+                    : AppColors.profit,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 22),
+        const PemsSectionTitle(
+          title: 'Raccourcis de gestion',
+          trailing: Text(
+            'Opérations directes',
+            style: TextStyle(color: AppColors.gold, fontSize: 11),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            PemsActionTile(
+              icon: Icons.point_of_sale_outlined,
+              label: '+ Vente',
+              selected: true,
+              onTap: () => context.go('/sales'),
+            ),
+            const SizedBox(width: 8),
+            PemsActionTile(
+              icon: Icons.add_shopping_cart_outlined,
+              label: '+ Stock',
+              onTap: () => context.go('/catalog'),
+            ),
+            const SizedBox(width: 8),
+            PemsActionTile(
+              icon: Icons.storefront_outlined,
+              label: 'Boutiques',
+              onTap: () => context.go('/shops'),
+            ),
+            const SizedBox(width: 8),
+            PemsActionTile(
+              icon: Icons.share_outlined,
+              label: 'Rapport',
+              onTap: () => context.go('/reports'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 22),
+        PemsSectionTitle(
+          title: 'Performance par boutique',
+          count: data.shops.length,
+          trailing: TextButton(
+            onPressed: () => context.go('/shops'),
+            child: const Text('Voir tout'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (data.shops.isEmpty)
+          Card(
+            child: EmptyState(
+              icon: Icons.storefront,
+              title: 'Créez votre première boutique',
+              message: 'Ajoutez un point de vente pour commencer à suivre votre activité.',
+              action: FilledButton(
+                onPressed: () => context.go('/shops'),
+                child: const Text('Ajouter une boutique'),
+              ),
+            ),
+          )
+        else
+          ...data.shops.map(
+            (shop) => Padding(
+              padding: const EdgeInsets.only(bottom: 9),
+              child: _ShopPerformanceCard(
+                shop: shop,
+                report: data.reports[shop.id],
+              ),
+            ),
+          ),
+        if (data.lowStock > 0) ...[
+          const SizedBox(height: 14),
+          PemsSectionTitle(
+            title: 'Alertes de stock',
+            trailing: TextButton(
+              onPressed: () => context.go('/catalog'),
+              child: const Text('Voir le stock'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(16),
+              leading: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.loss.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(
+                  Icons.notification_important_outlined,
+                  color: AppColors.loss,
+                ),
+              ),
+              title: Text(
+                '${data.lowStock} stock${data.lowStock > 1 ? 's' : ''} à surveiller',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: const Text(
+                'Articles à 3 paires ou moins, ruptures incluses.',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.go('/catalog'),
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+class _PeriodBanner extends StatelessWidget {
+  const _PeriodBanner();
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    decoration: BoxDecoration(
+      color: Theme.of(context).cardTheme.color,
+      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: const Row(
+      children: [
+        Icon(Icons.calendar_view_week_outlined, size: 19),
+        SizedBox(width: 9),
+        Expanded(
+          child: Text(
+            'Cette semaine',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+        Text(
+          'Données consolidées',
+          style: TextStyle(fontSize: 11, color: AppColors.muted),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ShopPerformanceCard extends StatelessWidget {
+  const _ShopPerformanceCard({required this.shop, this.report});
+  final Shop shop;
+  final WeeklyReport? report;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      leading: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primaryContainer
+              .withValues(alpha: .45),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: const Icon(Icons.storefront_outlined),
       ),
-      child: Row(
+      title: Text(
+        shop.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+      subtitle: Text(
+        shop.sellerName.isEmpty ? 'Vendeuse non renseignée' : shop.sellerName,
+      ),
+      trailing: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Icon(icon, color: AppColors.lime),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 17,
-                  ),
-                ),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFFC7DED2),
-                    fontSize: 11,
-                  ),
-                ),
-              ],
+          Text(
+            formatMoney(report?.revenue ?? 0),
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          Text(
+            '${report?.pairsSold ?? 0} paire${(report?.pairsSold ?? 0) > 1 ? 's' : ''}',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 11,
             ),
           ),
         ],
       ),
+      onTap: () => context.push('/shops/${shop.id}'),
     ),
   );
 }

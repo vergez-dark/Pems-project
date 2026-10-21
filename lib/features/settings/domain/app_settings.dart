@@ -3,7 +3,7 @@ enum AppThemeMode { system, light, dark }
 class AppSettings {
   const AppSettings({
     this.currency = 'FCFA',
-    this.themeMode = AppThemeMode.system,
+    this.themeMode = AppThemeMode.light,
     this.pinEnabled = false,
     this.biometricEnabled = false,
     this.lowStockThreshold = 3,

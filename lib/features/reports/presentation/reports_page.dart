@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/date_range.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/state_views.dart';
+import '../../../core/widgets/pems_components.dart';
 import '../../shops/domain/shop.dart';
 import '../domain/weekly_report.dart';
 
@@ -24,7 +25,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
   Widget build(BuildContext context) {
     final shopsAsync = ref.watch(shopsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Rapports')),
+      appBar: const PemsBrandHeader(section: 'Rapports'),
       body: shopsAsync.when(
         loading: () => const LoadingCards(),
         error: (error, _) => ErrorState(

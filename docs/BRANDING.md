@@ -1,36 +1,33 @@
-# Identité de marque
+# Identité PeMS Store
 
-## Recherche de nom
+## Nom
 
-Vérification indicative par recherche web publique le 21 octobre 2026 ; elle ne remplace ni une recherche de marque OAPI/INPI, ni une vérification finale chez un registrar.
+Le nom affiché officiel est **PeMS Store**. Le package Android historique
+`com.mamaariege.pasora`, le package Dart `pasora` et les noms internes des
+sauvegardes/base sont volontairement conservés afin de maintenir la
+compatibilité avec les installations et archives existantes.
 
-| Candidat | Idée | Vérification sommaire |
-|---|---|---|
-| **Pasora** | « pas » + élan commercial | pas d'application de stock de chaussures homonyme trouvée lors de la recherche indicative ; quelques sociétés éloignées |
-| Semella | semelle, sonorité latine | mot courant et occurrences éditoriales ; distinctivité moyenne |
-| Kossa | commerce local, énergique | nom court mais usages multiples possibles |
-| Pairo | « pair » + terminaison numérique | plusieurs usages tech possibles, prononciation moins française |
-| Soleva | « sole » + valeur | écarté : plusieurs commerces chaussures/beauté utilisent déjà ce nom, notamment [soleva.pl](https://soleva.pl/) et [getsoleva.com](https://getsoleva.com/) |
+## Signature visuelle
 
-## Choix
+L’emblème associe un auvent de boutique à une chaussure stylisée. Il exprime
+la gestion commerciale de points de vente spécialisés sans recourir à une
+icône générique de panier.
 
-**Pasora** est retenu. Il est court, prononçable en français comme en anglais, évoque le pas sans limiter la marque à une forme de chaussure, et fonctionne en icône (`P`) comme en signature.
+- `assets/branding/pems_mark.svg` : symbole vectoriel.
+- `assets/branding/pems_mark.png` : symbole raster original généré pour l’UI.
+- `assets/branding/pems_mark_small.png` : variante optimisée pour les petits composants.
+- `assets/branding/pems_logo.svg` : signature horizontale.
+- `assets/branding/icon.png` : icône principale et splash.
+- `assets/branding/icon_foreground.png` : premier plan d’icône adaptative.
 
-- Nom affiché : **Pasora**
-- Signature : **Vos pas, vos profits**
-- Package Android : `com.mamaariege.pasora`
-- Noms de domaine à vérifier et réserver avant commercialisation : `pasora.app`, `pasora.cm`
+Les anciennes ressources Pasora ne sont plus référencées par l’application ;
+elles restent dans le dépôt uniquement pour l’historique de marque.
 
-## Logo
+## Couleurs
 
-Le symbole représente une chaussure en mouvement dans un carré forêt arrondi. Deux points de semelle blancs suggèrent à la fois le déplacement et deux unités de stock. Le citron reste lisible à 24 px et contraste fortement sur forêt.
+- Rose poudré : `#E8B4C0`
+- Brun espresso : `#332A2D`
+- Or champagne : `#D4AF72`
+- Ivoire rosé : `#FFF8F8`
 
-Livrables :
-
-- `assets/branding/pasora_logo.svg` : signature horizontale.
-- `assets/branding/pasora_icon.svg` : icône carrée.
-- `assets/branding/icon.png` : source raster 1024 px.
-- `assets/branding/icon_foreground.png` : premier plan adaptatif Android.
-
-Zone de protection : au moins 12 % de la hauteur du symbole. Ne pas recolorer en rouge/vert, étirer, incliner ou poser sur un fond peu contrasté.
-
+L’or est réservé aux accents et le rose vif est exclu.

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/providers.dart';
 import '../../../core/widgets/state_views.dart';
+import '../../../core/widgets/pems_components.dart';
 import '../../settings/domain/app_settings.dart';
 import '../domain/backup_record.dart';
 
@@ -76,8 +78,9 @@ class _BackupPageState extends ConsumerState<BackupPage> {
   Widget build(BuildContext context) {
     final backups = ref.watch(backupsProvider);
     final last = ref.watch(settingsProvider).value?.lastBackupAt;
+    final isLinux = defaultTargetPlatform == TargetPlatform.linux;
     return Scaffold(
-      appBar: AppBar(title: const Text('Sauvegarde')),
+      appBar: const PemsBrandHeader(section: 'Sauvegarde', showBack: true),
       body: Column(
         children: [
           Padding(
@@ -106,23 +109,28 @@ class _BackupPageState extends ConsumerState<BackupPage> {
                         ?.copyWith(fontWeight: FontWeight.w900),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Base de données, réglages et photos dans l’espace privé de votre compte Google.',
+                  Text(
+                    isLinux
+                        ? 'Sur Linux, les sauvegardes sont conservées localement.'
+                        : 'Base de données, réglages et photos dans l’espace privé de votre compte Google.',
                   ),
                   const SizedBox(height: 18),
                   Row(
                     children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: _busy ? null : () => _backup(true),
-                          icon: const Icon(Icons.cloud_upload_outlined),
-                          label: const Text('Drive'),
+                      if (!isLinux)
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: _busy ? null : () => _backup(true),
+                            icon: const Icon(Icons.cloud_upload_outlined),
+                            label: const Text('Drive'),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
+                      if (!isLinux) const SizedBox(width: 10),
                       IconButton.filledTonal(
                         onPressed: _busy ? null : () => _backup(false),
-                        icon: const Icon(Icons.phone_android),
+                        icon: Icon(
+                          isLinux ? Icons.save_alt : Icons.phone_android,
+                        ),
                         tooltip: 'Copie locale',
                       ),
                     ],

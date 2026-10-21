@@ -1,17 +1,17 @@
 # Configuration Google Drive
 
-Pasora fonctionne hors connexion sans configuration Google. Pour la sauvegarde cloud, l'application demande uniquement `https://www.googleapis.com/auth/drive.appdata` : les archives sont invisibles dans le Drive ordinaire et accessibles seulement par Pasora.
+PeMS Store fonctionne hors connexion sans configuration Google. Pour la sauvegarde cloud, l'application demande uniquement `https://www.googleapis.com/auth/drive.appdata` : les archives sont invisibles dans le Drive ordinaire et accessibles seulement par PeMS Store.
 
 ## 1. Créer le projet
 
 1. Ouvrir la [Google Cloud Console](https://console.cloud.google.com/).
-2. Créer un projet, par exemple `Pasora Production`.
+2. Créer un projet, par exemple `PeMS Store Production`.
 3. Dans **API et services → Bibliothèque**, rechercher **Google Drive API** puis cliquer **Activer**.
 
 ## 2. Écran de consentement
 
 1. Ouvrir **Google Auth Platform → Branding**.
-2. Nom de l'application : `Pasora` ; renseigner l'adresse d'assistance et le logo carré.
+2. Nom de l'application : `PeMS Store` ; renseigner l'adresse d'assistance et le logo carré.
 3. Choisir **Externe** si l'application n'est pas limitée à une organisation Workspace.
 4. Ajouter le scope `drive.appdata` uniquement.
 5. En mode test, ajouter les comptes Google autorisés. Pour une diffusion publique, publier l'écran de consentement selon les demandes de Google.

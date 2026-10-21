@@ -1,5 +1,7 @@
 enum SaleStatus { validated, cancelled }
 
+enum PaymentMethod { cash, mobileMoney, card }
+
 class Sale {
   const Sale({
     required this.id,
@@ -10,6 +12,7 @@ class Sale {
     required this.actualUnitSalePrice,
     required this.frozenUnitLandedCost,
     this.status = SaleStatus.validated,
+    this.paymentMethod = PaymentMethod.cash,
   });
   final String id;
   final String shopId;
@@ -19,6 +22,7 @@ class Sale {
   final int actualUnitSalePrice;
   final int frozenUnitLandedCost;
   final SaleStatus status;
+  final PaymentMethod paymentMethod;
 
   int get revenue => actualUnitSalePrice * quantity;
   int get landedCost => frozenUnitLandedCost * quantity;

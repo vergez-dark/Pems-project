@@ -59,6 +59,12 @@ void main() {
         ),
       ),
     );
+    await tester.runAsync(
+      () => precacheImage(
+        const AssetImage('assets/branding/pems_mark_small.png'),
+        tester.element(find.byType(DashboardPage)),
+      ),
+    );
     await tester.pumpAndSettle();
     await expectLater(
       find.byType(DashboardPage),
@@ -80,6 +86,12 @@ void main() {
           theme: buildTheme(Brightness.light),
           home: const ShopsPage(),
         ),
+      ),
+    );
+    await tester.runAsync(
+      () => precacheImage(
+        const AssetImage('assets/branding/pems_mark_small.png'),
+        tester.element(find.byType(ShopsPage)),
       ),
     );
     await tester.pumpAndSettle();

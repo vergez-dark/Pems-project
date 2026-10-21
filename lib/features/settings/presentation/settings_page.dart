@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers.dart';
 import '../../../core/widgets/state_views.dart';
+import '../../../core/widgets/pems_components.dart';
 import '../domain/app_settings.dart';
 
 class SettingsPage extends ConsumerWidget {
@@ -61,7 +62,7 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Réglages')),
+      appBar: const PemsBrandHeader(section: 'Paramètres', showBack: true),
       body: settings.when(
         loading: () => const LoadingCards(),
         error: (error, _) => ErrorState(
@@ -186,8 +187,10 @@ class SettingsPage extends ConsumerWidget {
               children: [
                 ListTile(
                   leading: Icon(Icons.info_outline),
-                  title: Text('Pasora'),
-                  subtitle: Text('Version 1.0.0 • Vos pas, vos profits'),
+                  title: Text('PeMS Store'),
+                  subtitle: Text(
+                    'Version 1.0.0 • Gestion commerciale & boutiques',
+                  ),
                 ),
                 ListTile(
                   leading: Icon(Icons.privacy_tip_outlined),

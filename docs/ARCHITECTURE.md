@@ -1,8 +1,8 @@
-# Architecture de Pasora
+# Architecture de PeMS Store
 
 ## Exigences structurantes
 
-Pasora est une application Android mono-utilisateur, utilisable hors connexion, avec démarrage rapide et données financières exactes en entiers. Elle doit garantir la cohérence entre lots, ventes et stock, produire des rapports hebdomadaires stables et restaurer base et photos sur un autre appareil.
+PeMS Store est une application Android utilisable hors connexion, avec démarrage rapide et données financières exactes en entiers. Elle doit garantir la cohérence entre lots, ventes et stock, produire des rapports hebdomadaires stables et restaurer base et photos sur un autre appareil.
 
 Les risques non fonctionnels dominants sont la perte de données, une vente concurrente dépassant le stock, un changement rétroactif de marge, la fuite des coûts vers la vendeuse et une configuration OAuth absente.
 

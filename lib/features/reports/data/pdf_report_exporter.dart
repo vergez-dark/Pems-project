@@ -25,7 +25,7 @@ class PdfReportExporter implements ReportExporter {
       title: sellerOnly
           ? 'Rapport vendeuse — $shopName'
           : 'Rapport boutique — $shopName',
-      author: 'Pasora',
+      author: 'PeMS Store',
     );
     final green = PdfColor.fromHex('#12372A');
     final accent = PdfColor.fromHex('#D9E76C');
@@ -143,7 +143,7 @@ class PdfReportExporter implements ReportExporter {
         footer: (context) => pw.Align(
           alignment: pw.Alignment.centerRight,
           child: pw.Text(
-            'Pasora • page ${context.pageNumber}/${context.pagesCount}',
+            'PeMS Store • page ${context.pageNumber}/${context.pagesCount}',
             style: const pw.TextStyle(fontSize: 9),
           ),
         ),
@@ -154,7 +154,7 @@ class PdfReportExporter implements ReportExporter {
     final file = File(
       p.join(
         directory.path,
-        'pasora-$suffix-${report.start.toIso8601String().substring(0, 10)}.pdf',
+        'pems-store-$suffix-${report.start.toIso8601String().substring(0, 10)}.pdf',
       ),
     );
     await file.writeAsBytes(await document.save(), flush: true);
@@ -205,7 +205,7 @@ class PdfReportExporter implements ReportExporter {
       final file = await _build(report, shopName, sellerOnly);
       final amount = sellerOnly ? report.sellerShare : report.profit;
       final message =
-          'Bilan Pasora — $shopName\n${report.pairsSold} paires vendues • ${formatMoney(amount)}\nDu ${formatDay(report.start)} au ${formatDay(report.endExclusive.subtract(const Duration(days: 1)))}';
+          'Bilan PeMS Store — $shopName\n${report.pairsSold} paires vendues • ${formatMoney(amount)}\nDu ${formatDay(report.start)} au ${formatDay(report.endExclusive.subtract(const Duration(days: 1)))}';
       await SharePlus.instance.share(
         ShareParams(text: message, files: [XFile(file.path)]),
       );
@@ -254,7 +254,7 @@ class PdfReportExporter implements ReportExporter {
       }
       final amount = sellerOnly ? report.sellerShare : report.profit;
       final text = Uri.encodeComponent(
-        'Bilan Pasora — $shopName\n${report.pairsSold} paires vendues • ${formatMoney(amount)}\nDu ${formatDay(report.start)} au ${formatDay(report.endExclusive.subtract(const Duration(days: 1)))}',
+        'Bilan PeMS Store — $shopName\n${report.pairsSold} paires vendues • ${formatMoney(amount)}\nDu ${formatDay(report.start)} au ${formatDay(report.endExclusive.subtract(const Duration(days: 1)))}',
       );
       final opened = await launchUrl(
         Uri.parse('https://wa.me/$digits?text=$text'),

@@ -177,33 +177,76 @@ class DashboardSummary {
     required this.pairsSold,
     required this.lowStock,
     required this.shops,
+    this.revenue = 0,
+    this.stockQuantity = 0,
+    this.reports = const {},
   });
   final int profit;
   final int pairsSold;
   final int lowStock;
   final List<Shop> shops;
+  final int revenue;
+  final int stockQuantity;
+  final Map<String, WeeklyReport> reports;
 }
 
 final dashboardProvider = FutureProvider<DashboardSummary>((ref) async {
   final shops = await ref.watch(shopsProvider.future);
   var profit = 0;
+  var revenue = 0;
   var sold = 0;
   var low = 0;
+  var stock = 0;
+  final reports = <String, WeeklyReport>{};
   for (final shop in shops) {
     final report = await ref.watch(
       weeklyReportProvider((shopId: shop.id, anchor: DateTime.now())).future,
     );
+    reports[shop.id] = report;
     profit += report.profit;
+    revenue += report.revenue;
     sold += report.pairsSold;
     final catalog = await ref.watch(catalogProvider(shop.id).future);
     low += catalog.where((item) => item.variant.stockQuantity <= 3).length;
+    stock += catalog.fold<int>(
+      0,
+      (total, item) => total + item.variant.stockQuantity,
+    );
   }
   return DashboardSummary(
     profit: profit,
+    revenue: revenue,
     pairsSold: sold,
     lowStock: low,
+    stockQuantity: stock,
     shops: shops,
+    reports: reports,
   );
+});
+
+class GlobalCatalogItem {
+  const GlobalCatalogItem({required this.shop, required this.item});
+  final Shop shop;
+  final CatalogItem item;
+}
+
+final globalCatalogProvider = FutureProvider<List<GlobalCatalogItem>>((
+  ref,
+) async {
+  final shops = await ref.watch(shopsProvider.future);
+  final records = <GlobalCatalogItem>[];
+  for (final shop in shops) {
+    final catalog = await ref.watch(catalogProvider(shop.id).future);
+    records.addAll(
+      catalog.map((item) => GlobalCatalogItem(shop: shop, item: item)),
+    );
+  }
+  records.sort(
+    (a, b) => a.item.product.name.toLowerCase().compareTo(
+      b.item.product.name.toLowerCase(),
+    ),
+  );
+  return records;
 });
 
 class SettingsController extends AsyncNotifier<AppSettings> {

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Symbole PeMS Store">
+  <path d="M92 101h328l52 91c13 23-4 52-31 52-20 0-34-10-42-29-8 19-23 29-44 29-20 0-35-10-43-29-8 19-23 29-43 29-21 0-36-10-44-29-8 19-23 29-43 29-21 0-36-10-44-29-8 19-22 29-42 29-27 0-44-29-31-52l77-91Z" fill="#E8B4C0" stroke="#332A2D" stroke-width="16" stroke-linejoin="round"/>
+  <path d="M90 238v162c0 17 14 31 31 31h270c17 0 31-14 31-31V238" fill="none" stroke="#332A2D" stroke-width="18" stroke-linecap="round"/>
+  <path d="M151 346c37-4 63-22 79-57 6-13 12-25 18-36 26 42 60 62 102 62 22 0 42 9 56 26-30 40-73 59-128 59h-88c-25 0-44-20-39-54Z" fill="#E8B4C0" stroke="#332A2D" stroke-width="16" stroke-linejoin="round"/>
+  <path d="M170 363c58 24 135 26 213-5" fill="none" stroke="#D4AF72" stroke-width="14" stroke-linecap="round"/>
+</svg>

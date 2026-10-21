@@ -7,7 +7,7 @@ class AppDatabase {
     : _factory = factory ?? databaseFactory,
       _customPath = path;
 
-  static const schemaVersion = 2;
+  static const schemaVersion = 3;
   final DatabaseFactory _factory;
   final String? _customPath;
   Database? _database;
@@ -86,6 +86,11 @@ class AppDatabase {
         'CREATE INDEX idx_sales_shop_date ON sales(shop_id, date)',
       );
       await db.execute('CREATE INDEX idx_sales_variant ON sales(variant_id)');
+    }
+    if (oldVersion < 3) {
+      await db.execute(
+        "ALTER TABLE sales ADD COLUMN payment_method TEXT NOT NULL DEFAULT 'cash'",
+      );
     }
   }
 
