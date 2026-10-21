@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../navigation/pems_navigation.dart';
 import '../theme/app_theme.dart';
@@ -17,6 +18,19 @@ class PemsBrandHeader extends StatelessWidget implements PreferredSizeWidget {
   final bool showMenu;
   final List<Widget> actions;
 
+  void _goBack(BuildContext context) {
+    final router = GoRouter.of(context);
+    if (router.canPop()) {
+      context.pop();
+      return;
+    }
+
+    // Les écrans ouverts depuis le drawer utilisent `go()`, sans pile de
+    // navigation à dépiler. Dans ce cas, la flèche doit tout de même offrir
+    // un retour utile vers l'écran principal.
+    context.go('/dashboard');
+  }
+
   @override
   Size get preferredSize => const Size.fromHeight(70);
 
@@ -25,7 +39,7 @@ class PemsBrandHeader extends StatelessWidget implements PreferredSizeWidget {
     automaticallyImplyLeading: false,
     leading: showBack
         ? IconButton(
-            onPressed: () => Navigator.maybePop(context),
+            onPressed: () => _goBack(context),
             tooltip: 'Retour',
             icon: const Icon(Icons.arrow_back),
           )

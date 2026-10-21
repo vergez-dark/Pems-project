@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/pems_components.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../catalog/domain/catalog_entities.dart';
 import '../../inventory/domain/stock_entry.dart';
@@ -143,7 +144,7 @@ class _StockTab extends ConsumerWidget {
               title: 'Catalogue vide',
               message: 'Ajoutez un article, sa pointure et sa première entrée de stock.',
               action: FilledButton.icon(
-                onPressed: () => _showProductForm(context, shop.id),
+                onPressed: () => _openProductCreation(context, shop.id),
                 icon: const Icon(Icons.add),
                 label: const Text('Ajouter un article'),
               ),
@@ -229,7 +230,7 @@ class _StockTab extends ConsumerWidget {
             bottom: 22,
             child: FloatingActionButton.extended(
               heroTag: 'add-product-${shop.id}',
-              onPressed: () => _showProductForm(context, shop.id),
+              onPressed: () => _openProductCreation(context, shop.id),
               icon: const Icon(Icons.add),
               label: const Text('Article'),
             ),
@@ -239,13 +240,8 @@ class _StockTab extends ConsumerWidget {
     );
   }
 
-  void _showProductForm(BuildContext context, String shopId) =>
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        builder: (_) => ProductFormSheet(shopId: shopId),
-      );
+  void _openProductCreation(BuildContext context, String shopId) =>
+      context.push('/shops/$shopId/products/new');
 
   void _showStockForm(BuildContext context, String shopId, CatalogItem item) =>
       showModalBottomSheet<void>(
@@ -522,46 +518,107 @@ class _MetricCard extends StatelessWidget {
   );
 }
 
-class ProductFormSheet extends ConsumerStatefulWidget {
-  const ProductFormSheet({super.key, required this.shopId});
+class ProductCreationPage extends ConsumerStatefulWidget {
+  const ProductCreationPage({super.key, required this.shopId});
   final String shopId;
   @override
-  ConsumerState<ProductFormSheet> createState() => _ProductFormSheetState();
+  ConsumerState<ProductCreationPage> createState() =>
+      _ProductCreationPageState();
 }
 
-class _ProductFormSheetState extends ConsumerState<ProductFormSheet> {
+class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
   final _name = TextEditingController();
   final _category = TextEditingController(text: 'Général');
   final _size = TextEditingController();
   final _color = TextEditingController();
+  final _quantity = TextEditingController();
+  final _purchase = TextEditingController();
+  final _transport = TextEditingController(text: '0');
+  final _sale = TextEditingController();
+  final _notes = TextEditingController();
   String? _photo;
   bool _saving = false;
+  int _step = 0;
+  String? _productId;
+  String? _variantId;
+  String? _openingEntryId;
+  String? _categoryId;
+  String? _savedCategoryName;
 
-  Future<void> _save() async {
+  int get _initialQuantity => int.tryParse(_quantity.text.trim()) ?? 0;
+  int get _purchasePrice =>
+      int.tryParse(_purchase.text.replaceAll(RegExp(r'\\s'), '')) ?? 0;
+  int get _transportCost =>
+      int.tryParse(_transport.text.replaceAll(RegExp(r'\\s'), '')) ?? 0;
+  int get _salePrice =>
+      int.tryParse(_sale.text.replaceAll(RegExp(r'\\s'), '')) ?? 0;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _category.dispose();
+    _size.dispose();
+    _color.dispose();
+    _quantity.dispose();
+    _purchase.dispose();
+    _transport.dispose();
+    _sale.dispose();
+    _notes.dispose();
+    super.dispose();
+  }
+
+  bool _validateDetails() {
     if (_name.text.trim().isEmpty ||
+        _category.text.trim().isEmpty ||
         _size.text.trim().isEmpty ||
         _color.text.trim().isEmpty) {
       showMessage(
         context,
-        'Nom, pointure et couleur sont obligatoires.',
+        'Renseignez le nom, la catégorie, la pointure et la couleur.',
         error: true,
       );
-      return;
+      return false;
     }
+    if (_initialQuantity <= 0 ||
+        _purchasePrice < 0 ||
+        _transportCost < 0 ||
+        _salePrice <= 0) {
+      showMessage(
+        context,
+        'Indiquez une quantité et un prix de vente valides.',
+        error: true,
+      );
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _save() async {
+    if (!_validateDetails()) return;
     setState(() => _saving = true);
+    final isUpdate = _productId != null;
     final existing =
         ref.read(categoriesProvider(widget.shopId)).value ?? const <Category>[];
-    var category = existing
-        .where(
-          (item) =>
-              item.name.toLowerCase() == _category.text.trim().toLowerCase(),
-        )
-        .firstOrNull;
+    final categoryName = _category.text.trim();
+    Category? category;
+    if (_categoryId != null && _savedCategoryName == categoryName) {
+      category = Category(
+        id: _categoryId!,
+        shopId: widget.shopId,
+        name: categoryName,
+      );
+    } else {
+      category = existing
+          .where(
+            (item) => item.name.toLowerCase() == categoryName.toLowerCase(),
+          )
+          .firstOrNull;
+    }
     if (category == null) {
       category = Category(
         id: const Uuid().v4(),
         shopId: widget.shopId,
-        name: _category.text.trim(),
+        name: categoryName,
       );
       final categoryResult = await ref.read(saveCategoryProvider)(category);
       final failed = categoryResult.fold((f) => f, (_) => null);
@@ -572,133 +629,421 @@ class _ProductFormSheetState extends ConsumerState<ProductFormSheet> {
       }
     }
     final product = Product(
-      id: const Uuid().v4(),
+      id: _productId ?? const Uuid().v4(),
       shopId: widget.shopId,
       categoryId: category.id,
       name: _name.text.trim(),
       photoPath: _photo,
+      notes: _notes.text.trim(),
     );
     final variant = ProductVariant(
-      id: const Uuid().v4(),
+      id: _variantId ?? const Uuid().v4(),
       productId: product.id,
       size: _size.text.trim(),
       color: _color.text.trim(),
       stockQuantity: 0,
     );
-    final result = await ref.read(saveProductProvider)(product, variant);
+    final result = isUpdate
+        ? await ref.read(updateProductProvider)(product, variant)
+        : await ref.read(saveProductProvider)(product, variant);
+    if (!mounted) return;
+    final failure = result.fold((failure) => failure, (_) => null);
+    if (failure != null) {
+      setState(() => _saving = false);
+      showMessage(context, failure.message, error: true);
+      return;
+    }
+
+    final entry = StockEntry(
+      id: _openingEntryId ?? const Uuid().v4(),
+      shopId: widget.shopId,
+      productId: product.id,
+      variantId: variant.id,
+      date: DateTime.now(),
+      quantity: _initialQuantity,
+      remainingQuantity: _initialQuantity,
+      unitPurchasePrice: _purchasePrice,
+      transportCost: _transportCost,
+      plannedUnitSalePrice: _salePrice,
+    );
+    final stockResult = isUpdate
+        ? await ref.read(updateStockProvider)(entry)
+        : await ref.read(addStockProvider)(entry);
     if (!mounted) return;
     setState(() => _saving = false);
-    result.fold((f) => showMessage(context, f.message, error: true), (_) {
-      ref.invalidate(catalogProvider(widget.shopId));
-      ref.invalidate(globalCatalogProvider);
-      ref.invalidate(categoriesProvider(widget.shopId));
-      Navigator.pop(context);
-    });
+    stockResult.fold(
+      (failure) => showMessage(
+        context,
+        '${failure.message} L’article a été créé sans son stock initial.',
+        error: true,
+      ),
+      (_) {
+        setState(() {
+          _productId = product.id;
+          _variantId = variant.id;
+          _openingEntryId = entry.id;
+          _categoryId = category!.id;
+          _savedCategoryName = categoryName;
+          _step = 1;
+        });
+        ref.invalidate(catalogProvider(widget.shopId));
+        ref.invalidate(globalCatalogProvider);
+        ref.invalidate(categoriesProvider(widget.shopId));
+        ref.invalidate(dashboardProvider);
+      },
+    );
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.fromLTRB(
-      20,
-      12,
-      20,
-      MediaQuery.viewInsetsOf(context).bottom + 24,
-    ),
-    child: SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Center(
-            child: Container(
-              width: 44,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.outlineVariant,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
+  Widget build(BuildContext context) => Scaffold(
+    appBar: const PemsBrandHeader(section: 'Nouvel article', showBack: true),
+    body: DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Theme.of(context).colorScheme.primaryContainer
+                .withValues(alpha: .30),
+            Theme.of(context).colorScheme.surface,
+          ],
+        ),
+      ),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            24,
+            20,
+            MediaQuery.viewInsetsOf(context).bottom + 24,
           ),
-          const SizedBox(height: 20),
-          Text(
-            'Nouvel article',
-            style: Theme.of(context).textTheme.headlineSmall
-                ?.copyWith(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 18),
-          Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              InkWell(
-                onTap: () async {
-                  final result = await ref.read(pickPhotoProvider)();
-                  result.fold(
-                    (f) => showMessage(context, f.message, error: true),
-                    (path) => setState(() => _photo = path),
-                  );
-                },
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  width: 84,
-                  height: 84,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: _photo == null
-                      ? const Icon(Icons.add_a_photo_outlined)
-                      : ClipRRect(
+              Text(
+                _step == 0 ? 'Nouvel article' : 'Article enregistré',
+                style: Theme.of(context).textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _step == 0
+                    ? 'Étape 1 sur 2 • Informations et stock initial'
+                    : 'Étape 2 sur 2 • Vérifiez les détails enregistrés',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 18),
+              _StepIndicator(activeStep: _step),
+              const SizedBox(height: 20),
+              if (_step == 0) ...[
+                Row(
+                  children: [
+                    InkWell(
+                      onTap: () async {
+                        final result = await ref.read(pickPhotoProvider)();
+                        result.fold(
+                          (f) => showMessage(context, f.message, error: true),
+                          (path) => setState(() => _photo = path),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: 84,
+                        height: 84,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
                           borderRadius: BorderRadius.circular(16),
-                          child: Image.file(File(_photo!), fit: BoxFit.cover),
                         ),
+                        child: _photo == null
+                            ? const Icon(Icons.add_a_photo_outlined)
+                            : ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.file(
+                                  File(_photo!),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: TextField(
+                        controller: _name,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'Nom de l’article',
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: TextField(
-                  controller: _name,
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _category,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(labelText: 'Catégorie'),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _size,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Pointure',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _color,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(labelText: 'Couleur'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _quantity,
+                  keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'Nom de l’article',
+                    labelText: 'Quantité disponible',
+                    suffixText: 'paires',
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _category,
-            decoration: const InputDecoration(labelText: 'Catégorie'),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _size,
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _purchase,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Prix d’achat',
+                          suffixText: 'FCFA',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _sale,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Prix de vente',
+                          suffixText: 'FCFA',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _transport,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Pointure'),
+                  decoration: const InputDecoration(
+                    labelText: 'Transport du lot',
+                    suffixText: 'FCFA',
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _color,
-                  decoration: const InputDecoration(labelText: 'Couleur'),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _notes,
+                  maxLines: 2,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    labelText: 'Notes (facultatif)',
+                  ),
                 ),
-              ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _saving ? null : _save,
+                    icon: const Icon(Icons.save_outlined),
+                    label: Text(
+                      _saving
+                          ? 'Enregistrement…'
+                          : _productId == null
+                          ? 'Enregistrer'
+                          : 'Enregistrer les modifications',
+                    ),
+                  ),
+                ),
+              ] else ...[
+                const _SavedArticleBanner(),
+                const SizedBox(height: 14),
+                _ProductConfirmation(
+                  name: _name.text.trim(),
+                  category: _category.text.trim(),
+                  size: _size.text.trim(),
+                  color: _color.text.trim(),
+                  quantity: _initialQuantity,
+                  purchasePrice: _purchasePrice,
+                  transportCost: _transportCost,
+                  salePrice: _salePrice,
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _saving
+                            ? null
+                            : () => setState(() => _step = 0),
+                        child: const Text('Modifier'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _saving ? null : () => context.pop(),
+                        child: const Text('Terminer'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: _saving ? null : _save,
-              child: Text(_saving ? 'Enregistrement…' : 'Créer l’article'),
-            ),
-          ),
-        ],
+        ),
       ),
     ),
   );
+}
+
+class _SavedArticleBanner extends StatelessWidget {
+  const _SavedArticleBanner();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.secondaryContainer
+          .withValues(alpha: .58),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Row(
+      children: [
+        Icon(
+          Icons.check_circle_rounded,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        const SizedBox(width: 10),
+        const Expanded(
+          child: Text(
+            'L’article et son stock initial ont bien été enregistrés.',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _StepIndicator extends StatelessWidget {
+  const _StepIndicator({required this.activeStep});
+  final int activeStep;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      children: List.generate(2, (index) {
+        final active = index <= activeStep;
+        return Expanded(
+          child: Container(
+            height: 5,
+            margin: EdgeInsets.only(right: index == 0 ? 8 : 0),
+            decoration: BoxDecoration(
+              color: active ? scheme.primary : scheme.outlineVariant,
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _ProductConfirmation extends StatelessWidget {
+  const _ProductConfirmation({
+    required this.name,
+    required this.category,
+    required this.size,
+    required this.color,
+    required this.quantity,
+    required this.purchasePrice,
+    required this.transportCost,
+    required this.salePrice,
+  });
+
+  final String name;
+  final String category;
+  final String size;
+  final String color;
+  final int quantity;
+  final int purchasePrice;
+  final int transportCost;
+  final int salePrice;
+
+  @override
+  Widget build(BuildContext context) {
+    final unitCost = const StockCostCalculator().unitLandedCost(
+      quantity: quantity,
+      unitPurchasePrice: purchasePrice,
+      transportCost: transportCost,
+    );
+    final rows = <(String, String)>[
+      ('Article', name),
+      ('Catégorie', category),
+      ('Variante', '$size • $color'),
+      ('Stock initial', '$quantity paires'),
+      ('Prix d’achat', formatMoney(purchasePrice)),
+      ('Transport', formatMoney(transportCost)),
+      ('Coût unitaire', formatMoney(unitCost)),
+      ('Prix de vente', formatMoney(salePrice)),
+    ];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: rows
+              .map(
+                (row) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          row.$1,
+                          style: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        row.$2,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
+  }
 }
 
 class StockFormSheet extends ConsumerStatefulWidget {

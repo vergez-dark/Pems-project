@@ -38,6 +38,11 @@ final routerProvider = Provider<GoRouter>(
         builder: (_, state) =>
             ShopDetailPage(shopId: state.pathParameters['id']!),
       ),
+      GoRoute(
+        path: '/shops/:id/products/new',
+        builder: (_, state) =>
+            ProductCreationPage(shopId: state.pathParameters['id']!),
+      ),
       GoRoute(path: '/backup', builder: (_, _) => const BackupPage()),
       GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
     ],

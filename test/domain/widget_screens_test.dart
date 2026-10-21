@@ -1,13 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:pasora/core/providers.dart';
+import 'package:pasora/core/widgets/pems_components.dart';
 import 'package:pasora/features/shops/presentation/dashboard_page.dart';
 import 'package:pasora/features/shops/presentation/shops_page.dart';
 import 'package:pasora/features/catalog/presentation/catalog_page.dart';
 import 'package:pasora/features/sales/presentation/quick_sale_page.dart';
 
 void main() {
+  testWidgets('flèche de page revient à l’accueil sans historique', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/settings',
+      routes: [
+        GoRoute(
+          path: '/dashboard',
+          builder: (_, _) => const Scaffold(body: Text('Accueil cible')),
+        ),
+        GoRoute(
+          path: '/settings',
+          builder: (_, _) => const Scaffold(
+            appBar: PemsBrandHeader(section: 'Paramètres', showBack: true),
+            body: Text('Paramètres'),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Accueil cible'), findsOneWidget);
+  });
+
   testWidgets('tableau de bord affiche les métriques clés', (tester) async {
     await tester.pumpWidget(
       ProviderScope(

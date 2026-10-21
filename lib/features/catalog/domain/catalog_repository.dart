@@ -6,6 +6,7 @@ abstract interface class CatalogRepository {
   Future<Result<void>> saveCategory(Category category);
   Future<Result<List<CatalogItem>>> listItems(String shopId);
   Future<Result<void>> saveProduct(Product product, ProductVariant variant);
+  Future<Result<void>> updateProduct(Product product, ProductVariant variant);
 }
 
 class ListCategories {
@@ -34,4 +35,11 @@ class SaveProduct {
   final CatalogRepository repository;
   Future<Result<void>> call(Product product, ProductVariant variant) =>
       repository.saveProduct(product, variant);
+}
+
+class UpdateProduct {
+  const UpdateProduct(this.repository);
+  final CatalogRepository repository;
+  Future<Result<void>> call(Product product, ProductVariant variant) =>
+      repository.updateProduct(product, variant);
 }

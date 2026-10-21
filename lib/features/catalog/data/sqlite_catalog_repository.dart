@@ -127,4 +127,38 @@ class SqliteCatalogRepository implements CatalogRepository {
       );
     }
   }
+
+  @override
+  Future<Result<void>> updateProduct(
+    Product product,
+    ProductVariant variant,
+  ) async {
+    try {
+      final db = await database.instance;
+      await db.transaction((txn) async {
+        await txn.update(
+          'products',
+          {
+            'category_id': product.categoryId,
+            'name': product.name.trim(),
+            'photo_path': product.photoPath,
+            'notes': product.notes,
+          },
+          where: 'id = ?',
+          whereArgs: [product.id],
+        );
+        await txn.update(
+          'variants',
+          {'size': variant.size, 'color': variant.color},
+          where: 'id = ?',
+          whereArgs: [variant.id],
+        );
+      });
+      return const Success(null);
+    } catch (error) {
+      return Failure(
+        AppFailure('Impossible de modifier l’article.', cause: error),
+      );
+    }
+  }
 }

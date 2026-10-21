@@ -3,6 +3,7 @@ import 'stock_entry.dart';
 
 abstract interface class InventoryRepository {
   Future<Result<void>> addEntry(StockEntry entry);
+  Future<Result<void>> updateEntry(StockEntry entry);
   Future<Result<List<StockEntry>>> entriesForVariant(String variantId);
   Future<Result<int>> availableStock(String variantId);
 }
@@ -18,4 +19,10 @@ class AddStockEntry {
     }
     return repository.addEntry(entry);
   }
+}
+
+class UpdateStockEntry {
+  const UpdateStockEntry(this.repository);
+  final InventoryRepository repository;
+  Future<Result<void>> call(StockEntry entry) => repository.updateEntry(entry);
 }

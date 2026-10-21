@@ -248,12 +248,8 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
                                       if (shop == null || !context.mounted) {
                                         return;
                                       }
-                                      await showModalBottomSheet<void>(
-                                        context: context,
-                                        isScrollControlled: true,
-                                        useSafeArea: true,
-                                        builder: (_) =>
-                                            ProductFormSheet(shopId: shop.id),
+                                      await context.push<void>(
+                                        '/shops/${shop.id}/products/new',
                                       );
                                       ref.invalidate(globalCatalogProvider);
                                     },

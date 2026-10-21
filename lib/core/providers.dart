@@ -90,11 +90,17 @@ final saveCategoryProvider = Provider<SaveCategory>(
 final saveProductProvider = Provider<SaveProduct>(
   (ref) => SaveProduct(ref.watch(catalogRepositoryProvider)),
 );
+final updateProductProvider = Provider<UpdateProduct>(
+  (ref) => UpdateProduct(ref.watch(catalogRepositoryProvider)),
+);
 final pickPhotoProvider = Provider<PickProductPhoto>(
   (ref) => PickProductPhoto(ref.watch(photoRepositoryProvider)),
 );
 final addStockProvider = Provider<AddStockEntry>(
   (ref) => AddStockEntry(ref.watch(inventoryRepositoryProvider)),
+);
+final updateStockProvider = Provider<UpdateStockEntry>(
+  (ref) => UpdateStockEntry(ref.watch(inventoryRepositoryProvider)),
 );
 final recordSaleProvider = Provider<RecordSale>(
   (ref) => RecordSale(ref.watch(salesRepositoryProvider)),

@@ -37,6 +37,54 @@ class SqliteInventoryRepository implements InventoryRepository {
     }
   }
 
+  @override
+  Future<Result<void>> updateEntry(StockEntry entry) async {
+    try {
+      final db = await database.instance;
+      await db.transaction((txn) async {
+        final rows = await txn.query(
+          'stock_entries',
+          columns: ['quantity', 'remaining_quantity'],
+          where: 'id = ?',
+          whereArgs: [entry.id],
+          limit: 1,
+        );
+        if (rows.isEmpty) throw StateError('Entrée de stock introuvable.');
+
+        final oldQuantity = rows.first['quantity']! as int;
+        final oldRemaining = rows.first['remaining_quantity']! as int;
+        final quantityAlreadySold = oldQuantity - oldRemaining;
+        if (entry.quantity < quantityAlreadySold) {
+          throw StateError(
+            'La quantité est inférieure aux paires déjà vendues.',
+          );
+        }
+        final newRemaining = entry.quantity - quantityAlreadySold;
+        await txn.update(
+          'stock_entries',
+          {
+            'quantity': entry.quantity,
+            'remaining_quantity': newRemaining,
+            'unit_purchase_price': entry.unitPurchasePrice,
+            'transport_cost': entry.transportCost,
+            'planned_unit_sale_price': entry.plannedUnitSalePrice,
+          },
+          where: 'id = ?',
+          whereArgs: [entry.id],
+        );
+        await txn.rawUpdate(
+          'UPDATE variants SET stock_quantity = stock_quantity + ? WHERE id = ?',
+          [newRemaining - oldRemaining, entry.variantId],
+        );
+      });
+      return const Success(null);
+    } catch (error) {
+      return Failure(
+        AppFailure('Impossible de modifier le stock initial.', cause: error),
+      );
+    }
+  }
+
   StockEntry _map(Map<String, Object?> row) => StockEntry(
     id: row['id']! as String,
     shopId: row['shop_id']! as String,
