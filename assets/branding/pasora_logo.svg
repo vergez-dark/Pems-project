@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 280" role="img" aria-label="Logo Pasora">
+  <rect width="260" height="260" x="10" y="10" rx="68" fill="#12372A"/>
+  <path d="M60 155c23 1 40-4 53-15 10-8 18-21 24-40l17 10c11 6 24 7 35 3l23-7 9 25-22 14c-16 10-33 17-52 20l-58 10c-17 3-31-4-39-17l10-3z" fill="#D9E76C"/>
+  <path d="M77 155c16 0 32-7 45-18 9-9 16-19 20-33" fill="none" stroke="#F7F5EF" stroke-width="9" stroke-linecap="round"/>
+  <text x="310" y="165" font-family="Arial, Helvetica, sans-serif" font-size="124" font-weight="800" letter-spacing="-4" fill="#12372A">Pasora</text>
+  <text x="318" y="222" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="600" letter-spacing="4" fill="#2E7D5A">VOS PAS, VOS PROFITS</text>
+</svg>

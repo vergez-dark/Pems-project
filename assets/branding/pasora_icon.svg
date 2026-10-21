@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Icône Pasora">
+  <rect width="512" height="512" rx="132" fill="#12372A"/>
+  <path d="M115 300c43 2 73-8 98-28 18-15 33-39 44-73l32 18c20 11 44 13 66 6l42-13 17 46-41 26c-29 19-62 32-96 38l-108 18c-31 5-58-7-73-31l19-7z" fill="#D9E76C"/>
+  <path d="M145 300c30 0 61-13 84-34 18-16 29-35 38-61" fill="none" stroke="#F7F5EF" stroke-width="18" stroke-linecap="round"/>
+  <path d="M303 238l-22 39m54-30-22 40m55-36-22 42" fill="none" stroke="#12372A" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="153" cy="373" r="19" fill="#F7F5EF"/>
+  <circle cx="365" cy="345" r="19" fill="#F7F5EF"/>
+</svg>
