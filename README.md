@@ -31,7 +31,9 @@ Sur Android, autoriser ponctuellement l'installation depuis la source utilisée 
 - rapport vendeuse distinct sans divulgation des coûts ou marges ;
 - PDF multi-page, image PNG de synthèse, partage Android et résumé `wa.me` ciblé ;
 - sauvegarde ZIP locale/Google Drive, conservation des 14 dernières et restauration complète ;
-- thèmes clair/sombre/système, PIN salé/haché et biométrie Android ;
+- création des identifiants au premier lancement, mot de passe dérivé par
+  PBKDF2-HMAC-SHA-256, session de 2 heures, refresh token rotatif et biométrie
+  Android ;
 - sauvegarde quotidienne WorkManager et rattrapage silencieux au lancement.
 
 ## Développement

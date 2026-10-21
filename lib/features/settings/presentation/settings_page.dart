@@ -10,51 +10,22 @@ import '../domain/app_settings.dart';
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
-  Future<void> _setPin(
-    BuildContext context,
-    WidgetRef ref,
-    AppSettings settings,
-    bool enabled,
-  ) async {
-    if (!enabled) {
-      await ref
-          .read(settingsProvider.notifier)
-          .save(settings.copyWith(pinEnabled: false));
-      return;
-    }
-    final controller = TextEditingController();
-    final pin = await showDialog<String>(
+  Future<void> _changePassword(BuildContext context, WidgetRef ref) async {
+    final values = await showDialog<({String current, String next})>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Créer un code PIN'),
-        content: TextField(
-          controller: controller,
-          obscureText: true,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          maxLength: 6,
-          decoration: const InputDecoration(labelText: '4 à 6 chiffres'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Activer'),
-          ),
-        ],
-      ),
+      builder: (_) => const _ChangePasswordDialog(),
     );
-    if (pin == null) return;
-    final result = await ref.read(setPinProvider)(pin);
+    if (values == null) return;
+    final result = await ref
+        .read(authControllerProvider.notifier)
+        .changePassword(
+          currentPassword: values.current,
+          newPassword: values.next,
+        );
     if (!context.mounted) return;
     result.fold(
       (f) => showMessage(context, f.message, error: true),
-      (_) => ref
-          .read(settingsProvider.notifier)
-          .save(settings.copyWith(pinEnabled: true)),
+      (_) => showMessage(context, 'Mot de passe modifié.'),
     );
   }
 
@@ -114,12 +85,22 @@ class SettingsPage extends ConsumerWidget {
             _Section(
               title: 'Sécurité',
               children: [
-                SwitchListTile(
-                  secondary: const Icon(Icons.pin_outlined),
-                  title: const Text('Code PIN'),
-                  subtitle: const Text('Protection locale au lancement'),
-                  value: value.pinEnabled,
-                  onChanged: (enabled) => _setPin(context, ref, value, enabled),
+                ListTile(
+                  leading: const Icon(Icons.account_circle_outlined),
+                  title: Text(
+                    ref.watch(authControllerProvider).value?.identifier ??
+                        'Propriétaire principal',
+                  ),
+                  subtitle: const Text(
+                    'Session de 2 heures, renouvelée automatiquement',
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.password_outlined),
+                  title: const Text('Modifier le mot de passe'),
+                  subtitle: const Text('8 caractères minimum'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _changePassword(context, ref),
                 ),
                 SwitchListTile(
                   secondary: const Icon(Icons.fingerprint),
@@ -141,6 +122,29 @@ class SettingsPage extends ConsumerWidget {
                     await ref
                         .read(settingsProvider.notifier)
                         .save(value.copyWith(biometricEnabled: enabled));
+                  },
+                ),
+                ListTile(
+                  leading: Icon(
+                    Icons.logout,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  title: Text(
+                    'Se déconnecter',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                  onTap: () async {
+                    final result = await ref
+                        .read(authControllerProvider.notifier)
+                        .signOut();
+                    if (!context.mounted) return;
+                    result.fold(
+                      (failure) =>
+                          showMessage(context, failure.message, error: true),
+                      (_) => context.go('/'),
+                    );
                   },
                 ),
               ],
@@ -206,6 +210,88 @@ class SettingsPage extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _ChangePasswordDialog extends StatefulWidget {
+  const _ChangePasswordDialog();
+
+  @override
+  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _current = TextEditingController();
+  final _next = TextEditingController();
+  final _confirmation = TextEditingController();
+
+  @override
+  void dispose() {
+    _current.dispose();
+    _next.dispose();
+    _confirmation.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Modifier le mot de passe'),
+    content: Form(
+      key: _formKey,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _current,
+              obscureText: true,
+              autofocus: true,
+              autofillHints: const [AutofillHints.password],
+              decoration: const InputDecoration(
+                labelText: 'Mot de passe actuel',
+              ),
+              validator: (value) =>
+                  (value ?? '').isEmpty ? 'Champ obligatoire.' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _next,
+              obscureText: true,
+              autofillHints: const [AutofillHints.newPassword],
+              decoration: const InputDecoration(
+                labelText: 'Nouveau mot de passe',
+              ),
+              validator: (value) =>
+                  (value ?? '').length < 8 ? '8 caractères minimum.' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _confirmation,
+              obscureText: true,
+              autofillHints: const [AutofillHints.newPassword],
+              decoration: const InputDecoration(labelText: 'Confirmation'),
+              validator: (value) => value != _next.text
+                  ? 'Les mots de passe ne correspondent pas.'
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Annuler'),
+      ),
+      FilledButton(
+        onPressed: () {
+          if (!_formKey.currentState!.validate()) return;
+          Navigator.pop(context, (current: _current.text, next: _next.text));
+        },
+        child: const Text('Enregistrer'),
+      ),
+    ],
+  );
 }
 
 class _Section extends StatelessWidget {

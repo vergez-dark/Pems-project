@@ -45,3 +45,17 @@ L'export PNG rasterise uniquement la première page du PDF à 144 dpi, résoluti
 
 Le keystore et `key.properties` sont volontairement exclus du dépôt. Une clé locale peut être générée par le script documenté ; le build release refuse silencieusement de prétendre être signé en production et utilise la signature debug seulement lorsqu'aucune clé locale n'est fournie pour les builds de développement.
 
+## D-011 — Authentification et session locale
+
+PeMS Store reste mono-utilisateur et hors connexion : les jetons protègent la
+session de l'application, ils ne prétendent pas représenter une session serveur.
+Le propriétaire crée son identifiant et son mot de passe au premier lancement.
+Le mot de passe est dérivé avec PBKDF2-HMAC-SHA-256 (sel aléatoire de 32 octets,
+120 000 itérations).
+
+Le jeton d'accès expire après 2 heures. Le refresh token est rotatif, signé avec
+la clé dérivée du compte et renouvelé cinq minutes avant l'expiration tant que
+l'application est active. Sa durée glissante est de 30 jours. « Se souvenir de
+moi » persiste la session dans le sandbox ; sinon, elle reste uniquement en
+mémoire et disparaît avec le processus.
+

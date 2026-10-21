@@ -149,5 +149,19 @@ sequenceDiagram
 
 ## Sécurité
 
-Base et photos restent dans le sandbox applicatif. Le PIN est salé avec 24 octets aléatoires et haché SHA-256 ; la biométrie délègue au système. Les rapports vendeuse excluent les coûts d'achat et les marges. Les secrets OAuth et de signature ne sont pas versionnés.
+Base et photos restent dans le sandbox applicatif. Au premier lancement, le
+propriétaire choisit son identifiant et son mot de passe. Le mot de passe est
+dérivé par PBKDF2-HMAC-SHA-256 avec un sel aléatoire de 32 octets et 120 000
+itérations ; il n'est jamais conservé en clair.
+
+Le jeton d'accès local dure exactement 2 heures. Cinq minutes avant son
+expiration, le contrôleur Riverpod utilise un refresh token rotatif pour créer
+une nouvelle paire de jetons sans interrompre une session active. Le même
+contrôle est exécuté au retour au premier plan et au redémarrage. Un refresh
+token mémorisé est valable 30 jours glissants ; la déconnexion, une signature
+de session invalide, un changement de mot de passe ou son expiration le
+révoquent. La biométrie délègue toujours la preuve de présence au système.
+
+Les rapports vendeuse excluent les coûts d'achat et les marges. Les secrets
+OAuth et de signature ne sont pas versionnés.
 

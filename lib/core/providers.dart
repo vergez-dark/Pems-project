@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/backup/data/google_drive_gateway.dart';
@@ -26,6 +28,7 @@ import '../features/shops/data/sqlite_shop_repository.dart';
 import '../features/shops/domain/shop.dart';
 import '../features/shops/domain/shop_repository.dart';
 import 'database/app_database.dart';
+import 'error/result.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final database = AppDatabase();
@@ -135,12 +138,152 @@ final restoreBackupProvider = Provider<RestoreBackup>(
 final authenticateProvider = Provider<AuthenticateOwner>(
   (ref) => AuthenticateOwner(ref.watch(securityRepositoryProvider)),
 );
-final setPinProvider = Provider<SetPin>(
-  (ref) => SetPin(ref.watch(securityRepositoryProvider)),
-);
-final verifyPinProvider = Provider<VerifyPin>(
-  (ref) => VerifyPin(ref.watch(securityRepositoryProvider)),
-);
+
+enum AuthStatus { setupRequired, signedOut, authenticated }
+
+class AuthSnapshot {
+  const AuthSnapshot._({required this.status, this.identifier, this.session});
+
+  const AuthSnapshot.setupRequired() : this._(status: AuthStatus.setupRequired);
+
+  const AuthSnapshot.signedOut([String? identifier])
+    : this._(status: AuthStatus.signedOut, identifier: identifier);
+
+  AuthSnapshot.authenticated(AuthSession session)
+    : this._(
+        status: AuthStatus.authenticated,
+        identifier: session.identifier,
+        session: session,
+      );
+
+  final AuthStatus status;
+  final String? identifier;
+  final AuthSession? session;
+}
+
+class AuthController extends AsyncNotifier<AuthSnapshot> {
+  Timer? _refreshTimer;
+  bool _refreshing = false;
+
+  SecurityRepository get _repository => ref.read(securityRepositoryProvider);
+
+  @override
+  Future<AuthSnapshot> build() async {
+    ref.onDispose(() => _refreshTimer?.cancel());
+    final hasCredentials = await _repository.hasCredentials();
+    final configured = hasCredentials.fold(
+      (failure) => throw failure,
+      (value) => value,
+    );
+    if (!configured) return const AuthSnapshot.setupRequired();
+
+    final restored = await _repository.restoreSession();
+    final session = restored.fold((failure) => throw failure, (value) => value);
+    if (session != null) {
+      _scheduleRefresh(session);
+      return AuthSnapshot.authenticated(session);
+    }
+    return AuthSnapshot.signedOut(await _identifier());
+  }
+
+  Future<Result<void>> register({
+    required String identifier,
+    required String password,
+    required bool rememberMe,
+  }) async {
+    final result = await _repository.register(
+      identifier: identifier,
+      password: password,
+      rememberMe: rememberMe,
+    );
+    return _applySessionResult(result);
+  }
+
+  Future<Result<void>> signIn({
+    required String identifier,
+    required String password,
+    required bool rememberMe,
+  }) async {
+    final result = await _repository.signIn(
+      identifier: identifier,
+      password: password,
+      rememberMe: rememberMe,
+    );
+    return _applySessionResult(result);
+  }
+
+  Future<Result<void>> signInWithBiometrics({required bool rememberMe}) async =>
+      _applySessionResult(
+        await _repository.signInWithBiometrics(rememberMe: rememberMe),
+      );
+
+  Future<Result<void>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async => _applySessionResult(
+    await _repository.changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    ),
+  );
+
+  Future<Result<void>> signOut() async {
+    _refreshTimer?.cancel();
+    final result = await _repository.signOut();
+    return result.fold((failure) => Failure(failure), (_) {
+      state = AsyncData(AuthSnapshot.signedOut(state.value?.identifier));
+      return const Success(null);
+    });
+  }
+
+  Future<void> ensureFreshSession() async {
+    if (_refreshing) return;
+    final snapshot = state.value;
+    final session = snapshot?.session;
+    if (snapshot?.status != AuthStatus.authenticated || session == null) return;
+    if (!session.needsRefresh(DateTime.now())) {
+      _scheduleRefresh(session);
+      return;
+    }
+    _refreshing = true;
+    try {
+      final result = await _repository.refreshSession();
+      switch (result) {
+        case Failure<AuthSession>():
+          _refreshTimer?.cancel();
+          state = AsyncData(AuthSnapshot.signedOut(await _identifier()));
+        case Success<AuthSession>(:final value):
+          final refreshed = value;
+          state = AsyncData(AuthSnapshot.authenticated(refreshed));
+          _scheduleRefresh(refreshed);
+      }
+    } finally {
+      _refreshing = false;
+    }
+  }
+
+  Future<Result<void>> _applySessionResult(Result<AuthSession> result) async =>
+      result.fold((failure) => Failure(failure), (session) {
+        state = AsyncData(AuthSnapshot.authenticated(session));
+        _scheduleRefresh(session);
+        return const Success(null);
+      });
+
+  void _scheduleRefresh(AuthSession session) {
+    _refreshTimer?.cancel();
+    final target = session.accessTokenExpiresAt.subtract(refreshTokenLeeway);
+    final delay = target.difference(DateTime.now());
+    _refreshTimer = Timer(delay.isNegative ? Duration.zero : delay, () {
+      unawaited(ensureFreshSession());
+    });
+  }
+
+  Future<String?> _identifier() async =>
+      (await _repository.savedIdentifier()).fold((_) => null, (value) => value);
+}
+
+final authControllerProvider =
+    AsyncNotifierProvider<AuthController, AuthSnapshot>(AuthController.new);
 
 final shopsProvider = FutureProvider<List<Shop>>((ref) async {
   final result = await ref.watch(listShopsProvider)();

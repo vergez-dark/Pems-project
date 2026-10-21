@@ -24,7 +24,6 @@ class PreferencesSettingsRepository implements SettingsRepository {
           themeMode: savedTheme == null || isLegacyTheme
               ? AppThemeMode.light
               : AppThemeMode.values.byName(savedTheme),
-          pinEnabled: prefs.getBool('pinEnabled') ?? false,
           biometricEnabled: prefs.getBool('biometricEnabled') ?? false,
           lowStockThreshold: prefs.getInt('lowStockThreshold') ?? 3,
           onboardingDone: prefs.getBool('onboardingDone') ?? false,
@@ -44,7 +43,6 @@ class PreferencesSettingsRepository implements SettingsRepository {
         prefs.setString('currency', settings.currency),
         prefs.setString('themeMode', settings.themeMode.name),
         prefs.setBool('themeModeExplicit', true),
-        prefs.setBool('pinEnabled', settings.pinEnabled),
         prefs.setBool('biometricEnabled', settings.biometricEnabled),
         prefs.setInt('lowStockThreshold', settings.lowStockThreshold),
         prefs.setBool('onboardingDone', settings.onboardingDone),
