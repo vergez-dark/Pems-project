@@ -39,3 +39,19 @@ class SaleLine {
   final int quantity;
   final int unitLandedCost;
 }
+
+class SaleSummary {
+  const SaleSummary({
+    required this.sale,
+    required this.shopName,
+    required this.productName,
+    required this.size,
+    required this.color,
+  });
+
+  final Sale sale;
+  final String shopName;
+  final String productName;
+  final String size;
+  final String color;
+}

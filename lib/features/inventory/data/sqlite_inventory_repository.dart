@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../../core/database/database_write_failure.dart';
 import '../../../core/error/result.dart';
 import '../domain/inventory_repository.dart';
 import '../domain/stock_entry.dart';
@@ -33,7 +34,13 @@ class SqliteInventoryRepository implements InventoryRepository {
       });
       return const Success(null);
     } catch (error) {
-      return Failure(AppFailure('Entrée de stock impossible.', cause: error));
+      return Failure(
+        databaseWriteFailure(
+          'inventory.addEntry',
+          'Entrée de stock impossible.',
+          error,
+        ),
+      );
     }
   }
 
@@ -80,7 +87,11 @@ class SqliteInventoryRepository implements InventoryRepository {
       return const Success(null);
     } catch (error) {
       return Failure(
-        AppFailure('Impossible de modifier le stock initial.', cause: error),
+        databaseWriteFailure(
+          'inventory.updateEntry',
+          'Impossible de modifier le stock initial.',
+          error,
+        ),
       );
     }
   }

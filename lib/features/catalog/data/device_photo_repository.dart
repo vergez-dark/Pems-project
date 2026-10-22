@@ -7,19 +7,30 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/error/result.dart';
+import '../../../core/security/external_activity_guard.dart';
 import '../domain/photo_repository.dart';
 
 class DevicePhotoRepository implements PhotoRepository {
-  DevicePhotoRepository({ImagePicker? picker})
-    : _picker = picker ?? ImagePicker();
+  DevicePhotoRepository({
+    ImagePicker? picker,
+    ExternalActivityGuard? activityGuard,
+  }) : _picker = picker ?? ImagePicker(),
+       _activityGuard = activityGuard ?? ExternalActivityGuard();
   final ImagePicker _picker;
+  final ExternalActivityGuard _activityGuard;
 
   @override
-  Future<Result<String?>> pickAndStore() async {
+  Future<Result<String?>> pickAndStore({
+    PemsPhotoSource source = PemsPhotoSource.gallery,
+  }) async {
     try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 88,
+      final picked = await _activityGuard.run(
+        () => _picker.pickImage(
+          source: source == PemsPhotoSource.camera
+              ? ImageSource.camera
+              : ImageSource.gallery,
+          imageQuality: 88,
+        ),
       );
       if (picked == null) return const Success(null);
       final decoded = img.decodeImage(await picked.readAsBytes());

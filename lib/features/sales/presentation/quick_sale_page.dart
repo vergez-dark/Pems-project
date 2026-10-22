@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/providers.dart';
@@ -78,14 +79,14 @@ class _QuickSalePageState extends ConsumerState<QuickSalePage> {
         ref.invalidate(globalCatalogProvider);
         ref.invalidate(dashboardProvider);
         ref.invalidate(
-          weeklyReportProvider((shopId: shop.id, anchor: DateTime.now())),
+          weeklyReportProvider(
+            ReportQuery(shopId: shop.id, anchor: DateTime.now()),
+          ),
         );
-        setState(() {
-          _variantId = null;
-          _quantity = 1;
-          _price.clear();
-        });
+        ref.invalidate(salesHistoryProvider(null));
+        ref.invalidate(salesHistoryProvider(shop.id));
         showMessage(context, 'Vente enregistrée et stock mis à jour.');
+        context.go('/sales');
       },
     );
   }
@@ -94,7 +95,11 @@ class _QuickSalePageState extends ConsumerState<QuickSalePage> {
   Widget build(BuildContext context) {
     final shopsAsync = ref.watch(shopsProvider);
     return Scaffold(
-      appBar: const PemsBrandHeader(section: 'Ventes'),
+      appBar: const PemsBrandHeader(
+        section: 'Nouvelle vente',
+        showBack: true,
+        showMenu: false,
+      ),
       body: shopsAsync.when(
         loading: () => const LoadingCards(),
         error: (error, _) => ErrorState(
@@ -169,11 +174,6 @@ class _QuickSalePageState extends ConsumerState<QuickSalePage> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            IconButton.filledTonal(
-              onPressed: () => Navigator.maybePop(context),
-              icon: const Icon(Icons.arrow_back),
-            ),
-            const SizedBox(width: 10),
             const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,12 +196,9 @@ class _QuickSalePageState extends ConsumerState<QuickSalePage> {
             const SizedBox(width: 8),
             SizedBox(
               width: 142,
-              child: DropdownButtonFormField<String>(
-                initialValue: shop.id,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.storefront, size: 18),
-                ),
+              child: PemsDropdownField<String>(
+                value: shop.id,
+                leadingIcon: Icons.storefront,
                 items: shops
                     .map(
                       (value) => DropdownMenuItem(
@@ -230,14 +227,11 @@ class _QuickSalePageState extends ConsumerState<QuickSalePage> {
           title: 'ARTICLE SÉLECTIONNÉ',
           child: Column(
             children: [
-              DropdownButtonFormField<String>(
+              PemsDropdownField<String>(
                 key: ValueKey('${shop.id}-${item.variant.id}'),
-                initialValue: item.variant.id,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Article et variante',
-                  prefixIcon: Icon(Icons.checkroom_outlined),
-                ),
+                value: item.variant.id,
+                label: 'Article et variante',
+                leadingIcon: Icons.checkroom_outlined,
                 items: available
                     .map(
                       (value) => DropdownMenuItem(

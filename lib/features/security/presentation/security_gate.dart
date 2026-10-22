@@ -1,9 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/error/result.dart';
 import '../../../core/providers.dart';
+import '../../../core/security/external_activity_guard.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/state_views.dart';
 
@@ -18,21 +21,75 @@ class SecurityGate extends ConsumerStatefulWidget {
 
 class _SecurityGateState extends ConsumerState<SecurityGate>
     with WidgetsBindingObserver {
+  static const _deviceLockChannel = MethodChannel('pems.store/device_lock');
+  Timer? _externalActivityExitTimer;
+  bool _returningFromExternalActivity = false;
+  late final ExternalActivityGuard _externalActivityGuard;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _externalActivityGuard = ref.read(externalActivityGuardProvider);
+    _externalActivityGuard.onIdle = _onExternalActivityIdle;
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _externalActivityExitTimer?.cancel();
+    _externalActivityGuard.onIdle = null;
     super.dispose();
+  }
+
+  void _onExternalActivityIdle() {
+    // Some pickers resolve their Future before Flutter reports `resumed`.
+    // Allow that transition, but still lock if the app really stays away.
+    if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+      return;
+    }
+    _externalActivityExitTimer?.cancel();
+    _externalActivityExitTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      final state = WidgetsBinding.instance.lifecycleState;
+      if (state != AppLifecycleState.resumed &&
+          !_externalActivityGuard.isActive) {
+        _returningFromExternalActivity = false;
+        ref.read(authControllerProvider.notifier).lock();
+      }
+    });
+  }
+
+  Future<void> _lockIfDeviceWentToSleep() async {
+    try {
+      final interactive = await _deviceLockChannel.invokeMethod<bool>(
+        'isReadyForBiometrics',
+      );
+      if (mounted && interactive == false) {
+        ref.read(authControllerProvider.notifier).lock();
+      }
+    } on MissingPluginException {
+      // The Android device-state channel does not exist on desktop or in tests.
+    } on PlatformException {
+      // A failed device-state query must not interrupt the photo flow.
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      if (_externalActivityGuard.isActive) {
+        _returningFromExternalActivity = true;
+        unawaited(_lockIfDeviceWentToSleep());
+      } else if (!_returningFromExternalActivity) {
+        ref.read(authControllerProvider.notifier).lock();
+      } else {
+        _onExternalActivityIdle();
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      _externalActivityExitTimer?.cancel();
+      _returningFromExternalActivity = false;
       unawaited(ref.read(authControllerProvider.notifier).ensureFreshSession());
     }
   }
@@ -57,6 +114,13 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
         AuthStatus.signedOut => _AuthenticationNavigator(
           routeKey: 'authentication-sign-in',
           child: AuthenticationPage(savedIdentifier: snapshot.identifier),
+        ),
+        AuthStatus.locked => _AuthenticationNavigator(
+          routeKey: 'authentication-locked',
+          child: AuthenticationPage(
+            savedIdentifier: snapshot.identifier,
+            autoBiometric: true,
+          ),
         ),
         AuthStatus.authenticated => widget.child,
       },
@@ -85,16 +149,20 @@ class AuthenticationPage extends ConsumerStatefulWidget {
     super.key,
     this.setup = false,
     this.savedIdentifier,
+    this.autoBiometric = false,
   });
 
   final bool setup;
   final String? savedIdentifier;
+  final bool autoBiometric;
 
   @override
   ConsumerState<AuthenticationPage> createState() => _AuthenticationPageState();
 }
 
-class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
+class _AuthenticationPageState extends ConsumerState<AuthenticationPage>
+    with WidgetsBindingObserver {
+  static const _deviceLockChannel = MethodChannel('pems.store/device_lock');
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _identifier;
   final _password = TextEditingController();
@@ -103,19 +171,79 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
   bool _confirmationHidden = true;
   bool _rememberMe = true;
   bool _busy = false;
+  bool _autoBiometricTriggered = false;
+  Timer? _automaticBiometricTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _identifier = TextEditingController(text: widget.savedIdentifier ?? '');
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _automaticBiometricTimer?.cancel();
     _identifier.dispose();
     _password.dispose();
     _confirmation.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _scheduleAutomaticBiometric();
+    } else {
+      _automaticBiometricTimer?.cancel();
+      _automaticBiometricTimer = null;
+    }
+  }
+
+  void _scheduleAutomaticBiometric() {
+    if (!mounted ||
+        !widget.autoBiometric ||
+        _autoBiometricTriggered ||
+        _automaticBiometricTimer != null ||
+        ref.read(settingsProvider).value?.biometricEnabled != true) {
+      return;
+    }
+    _automaticBiometricTimer = Timer(
+      const Duration(milliseconds: 700),
+      () async {
+        _automaticBiometricTimer = null;
+        if (!mounted || _autoBiometricTriggered || _busy) return;
+        if (WidgetsBinding.instance.lifecycleState !=
+            AppLifecycleState.resumed) {
+          return;
+        }
+        bool ready;
+        try {
+          ready =
+              await _deviceLockChannel.invokeMethod<bool>(
+                'isReadyForBiometrics',
+              ) ??
+              false;
+        } on MissingPluginException {
+          // Linux et les tests n'ont pas de verrouillage Android à interroger.
+          ready = true;
+        } on PlatformException {
+          return;
+        }
+        if (!mounted || _autoBiometricTriggered || _busy) return;
+        if (!ready) {
+          _scheduleAutomaticBiometric();
+          return;
+        }
+        if (WidgetsBinding.instance.lifecycleState !=
+            AppLifecycleState.resumed) {
+          return;
+        }
+        _autoBiometricTriggered = true;
+        unawaited(_biometric());
+      },
+    );
   }
 
   Future<void> _submit() async {
@@ -176,6 +304,11 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
   Widget build(BuildContext context) {
     final biometricEnabled =
         ref.watch(settingsProvider).value?.biometricEnabled == true;
+    if (widget.autoBiometric && biometricEnabled && !_autoBiometricTriggered) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scheduleAutomaticBiometric();
+      });
+    }
     return Material(
       color: Theme.of(context).colorScheme.surface,
       child: SafeArea(
@@ -370,20 +503,6 @@ class _AuthenticationPageState extends ConsumerState<AuthenticationPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    const _RestrictedAccessNotice(),
-                    const SizedBox(height: 22),
-                    const Text(
-                      'PeMS Store v1.0  •  XAF (FCFA)  •  Cameroun',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 11, color: AppColors.muted),
-                    ),
-                    const SizedBox(height: 5),
-                    const Text(
-                      'Session sécurisée • Renouvellement automatique',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 10, color: AppColors.muted),
-                    ),
                   ],
                 ),
               ),
@@ -465,56 +584,6 @@ class _AccessLabel extends StatelessWidget {
   );
 }
 
-class _RestrictedAccessNotice extends StatelessWidget {
-  const _RestrictedAccessNotice();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.primaryContainer
-          .withValues(alpha: .18),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: const Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          radius: 17,
-          backgroundColor: Colors.white,
-          child: Icon(
-            Icons.admin_panel_settings_outlined,
-            size: 19,
-            color: AppColors.gold,
-          ),
-        ),
-        SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Accès gestionnaire restreint',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-              ),
-              SizedBox(height: 3),
-              Text(
-                'Plateforme fermée aux tiers. Les accès sont configurés exclusivement sur cet appareil.',
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.35,
-                  color: AppColors.muted,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
 class _FieldLabel extends StatelessWidget {
   const _FieldLabel(this.label);
 
@@ -559,6 +628,18 @@ class _AuthFailure extends StatelessWidget {
   final Object error;
   final VoidCallback onRetry;
 
+  String? get _diagnosticCode {
+    final cause = error is AppFailure ? (error as AppFailure).cause : error;
+    if (cause == null) return null;
+    if (cause is PlatformException) {
+      return 'Diagnostic : Android ${cause.code}';
+    }
+    if (cause is MissingPluginException) {
+      return 'Diagnostic : plugin Android indisponible';
+    }
+    return 'Diagnostic : ${cause.runtimeType}';
+  }
+
   @override
   Widget build(BuildContext context) => Material(
     color: Theme.of(context).colorScheme.surface,
@@ -582,6 +663,14 @@ class _AuthFailure extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
+            if (_diagnosticCode case final code?) ...[
+              const SizedBox(height: 8),
+              Text(
+                code,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
             const SizedBox(height: 18),
             FilledButton.icon(
               onPressed: onRetry,

@@ -46,7 +46,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
               : shops.first.id;
           final shop = shops.firstWhere((item) => item.id == selectedId);
           final report = ref.watch(
-            weeklyReportProvider((shopId: selectedId, anchor: _anchor)),
+            weeklyReportProvider(
+              ReportQuery(shopId: selectedId, anchor: _anchor),
+            ),
           );
           final week = WeekRange.from(_anchor);
           return Column(
@@ -55,12 +57,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
                 child: Column(
                   children: [
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedId,
-                      decoration: const InputDecoration(
-                        labelText: 'Boutique',
-                        prefixIcon: Icon(Icons.storefront_outlined),
-                      ),
+                    PemsDropdownField<String>(
+                      value: selectedId,
+                      label: 'Boutique',
+                      leadingIcon: Icons.storefront_outlined,
                       items: shops
                           .map(
                             (item) => DropdownMenuItem(
@@ -107,10 +107,9 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                   error: (error, _) => ErrorState(
                     error: error,
                     onRetry: () => ref.invalidate(
-                      weeklyReportProvider((
-                        shopId: selectedId,
-                        anchor: _anchor,
-                      )),
+                      weeklyReportProvider(
+                        ReportQuery(shopId: selectedId, anchor: _anchor),
+                      ),
                     ),
                   ),
                   data: (value) => _ReportContent(shop: shop, report: value),

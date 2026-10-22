@@ -1,6 +1,5 @@
-import 'package:sqflite/sqflite.dart';
-
 import '../../../core/database/app_database.dart';
+import '../../../core/database/database_write_failure.dart';
 import '../../../core/error/result.dart';
 import '../domain/shop.dart';
 import '../domain/shop_repository.dart';
@@ -14,6 +13,7 @@ class SqliteShopRepository implements ShopRepository {
     name: row['name']! as String,
     sellerName: row['seller_name']! as String,
     whatsapp: row['whatsapp']! as String,
+    photoPath: row['photo_path'] as String?,
     compensationType: CompensationType.values.byName(
       row['compensation_type']! as String,
     ),
@@ -31,6 +31,7 @@ class SqliteShopRepository implements ShopRepository {
     'name': shop.name,
     'seller_name': shop.sellerName,
     'whatsapp': shop.whatsapp,
+    'photo_path': shop.photoPath,
     'compensation_type': shop.compensationType.name,
     'percentage_rate': shop.percentageRate,
     'compensation_basis': shop.compensationBasis.name,
@@ -74,14 +75,24 @@ class SqliteShopRepository implements ShopRepository {
   @override
   Future<Result<void>> save(Shop shop) async {
     try {
-      await (await database.instance).insert(
-        'shops',
-        _toMap(shop),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      final db = await database.instance;
+      await db.transaction((txn) async {
+        final values = _toMap(shop);
+        final updated = await txn.update(
+          'shops',
+          values,
+          where: 'id = ?',
+          whereArgs: [shop.id],
+        );
+        if (updated == 0) {
+          await txn.insert('shops', values);
+        }
+      });
       return const Success(null);
     } catch (error) {
-      return Failure(AppFailure('Enregistrement impossible.', cause: error));
+      return Failure(
+        databaseWriteFailure('shop.save', 'Enregistrement impossible.', error),
+      );
     }
   }
 
@@ -99,7 +110,9 @@ class SqliteShopRepository implements ShopRepository {
       );
       return const Success(null);
     } catch (error) {
-      return Failure(AppFailure('Archivage impossible.', cause: error));
+      return Failure(
+        databaseWriteFailure('shop.archive', 'Archivage impossible.', error),
+      );
     }
   }
 }

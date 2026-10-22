@@ -13,11 +13,13 @@ import '../features/catalog/domain/catalog_repository.dart';
 import '../features/catalog/domain/photo_repository.dart';
 import '../features/inventory/data/sqlite_inventory_repository.dart';
 import '../features/inventory/domain/inventory_repository.dart';
+import '../features/inventory/domain/stock_entry.dart';
 import '../features/reports/data/pdf_report_exporter.dart';
 import '../features/reports/data/sqlite_report_repository.dart';
 import '../features/reports/domain/report_repository.dart';
 import '../features/reports/domain/weekly_report.dart';
 import '../features/sales/data/sqlite_sales_repository.dart';
+import '../features/sales/domain/sale.dart';
 import '../features/sales/domain/sales_repository.dart';
 import '../features/security/data/device_security_repository.dart';
 import '../features/security/domain/security_repository.dart';
@@ -29,6 +31,7 @@ import '../features/shops/domain/shop.dart';
 import '../features/shops/domain/shop_repository.dart';
 import 'database/app_database.dart';
 import 'error/result.dart';
+import 'security/external_activity_guard.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final database = AppDatabase();
@@ -65,8 +68,13 @@ final settingsRepositoryProvider = Provider<SettingsRepository>(
 final securityRepositoryProvider = Provider<SecurityRepository>(
   (_) => DeviceSecurityRepository(),
 );
+final externalActivityGuardProvider = Provider<ExternalActivityGuard>(
+  (_) => ExternalActivityGuard(),
+);
 final photoRepositoryProvider = Provider<PhotoRepository>(
-  (_) => DevicePhotoRepository(),
+  (ref) => DevicePhotoRepository(
+    activityGuard: ref.watch(externalActivityGuardProvider),
+  ),
 );
 final reportExporterProvider = Provider<ReportExporter>(
   (_) => const PdfReportExporter(),
@@ -105,11 +113,17 @@ final addStockProvider = Provider<AddStockEntry>(
 final updateStockProvider = Provider<UpdateStockEntry>(
   (ref) => UpdateStockEntry(ref.watch(inventoryRepositoryProvider)),
 );
+final listStockEntriesProvider = Provider<ListStockEntries>(
+  (ref) => ListStockEntries(ref.watch(inventoryRepositoryProvider)),
+);
 final recordSaleProvider = Provider<RecordSale>(
   (ref) => RecordSale(ref.watch(salesRepositoryProvider)),
 );
 final cancelSaleProvider = Provider<CancelSale>(
   (ref) => CancelSale(ref.watch(salesRepositoryProvider)),
+);
+final listSalesProvider = Provider<ListSales>(
+  (ref) => ListSales(ref.watch(salesRepositoryProvider)),
 );
 final getReportProvider = Provider<GetWeeklyReport>(
   (ref) => GetWeeklyReport(ref.watch(reportRepositoryProvider)),
@@ -139,7 +153,7 @@ final authenticateProvider = Provider<AuthenticateOwner>(
   (ref) => AuthenticateOwner(ref.watch(securityRepositoryProvider)),
 );
 
-enum AuthStatus { setupRequired, signedOut, authenticated }
+enum AuthStatus { setupRequired, signedOut, locked, authenticated }
 
 class AuthSnapshot {
   const AuthSnapshot._({required this.status, this.identifier, this.session});
@@ -148,6 +162,13 @@ class AuthSnapshot {
 
   const AuthSnapshot.signedOut([String? identifier])
     : this._(status: AuthStatus.signedOut, identifier: identifier);
+
+  AuthSnapshot.locked(AuthSession session)
+    : this._(
+        status: AuthStatus.locked,
+        identifier: session.identifier,
+        session: session,
+      );
 
   AuthSnapshot.authenticated(AuthSession session)
     : this._(
@@ -180,8 +201,7 @@ class AuthController extends AsyncNotifier<AuthSnapshot> {
     final restored = await _repository.restoreSession();
     final session = restored.fold((failure) => throw failure, (value) => value);
     if (session != null) {
-      _scheduleRefresh(session);
-      return AuthSnapshot.authenticated(session);
+      return AuthSnapshot.locked(session);
     }
     return AuthSnapshot.signedOut(await _identifier());
   }
@@ -234,6 +254,16 @@ class AuthController extends AsyncNotifier<AuthSnapshot> {
       state = AsyncData(AuthSnapshot.signedOut(state.value?.identifier));
       return const Success(null);
     });
+  }
+
+  void lock() {
+    final snapshot = state.value;
+    if (snapshot?.status != AuthStatus.authenticated ||
+        snapshot?.session == null) {
+      return;
+    }
+    _refreshTimer?.cancel();
+    state = AsyncData(AuthSnapshot.locked(snapshot!.session!));
   }
 
   Future<void> ensureFreshSession() async {
@@ -298,6 +328,14 @@ final catalogProvider = FutureProvider.family<List<CatalogItem>, String>((
   return result.fold((failure) => throw failure, (value) => value);
 });
 
+final stockEntriesProvider = FutureProvider.family<List<StockEntry>, String>((
+  ref,
+  variantId,
+) async {
+  final result = await ref.watch(listStockEntriesProvider)(variantId);
+  return result.fold((failure) => throw failure, (value) => value);
+});
+
 final categoriesProvider = FutureProvider.family<List<Category>, String>((
   ref,
   shopId,
@@ -306,12 +344,35 @@ final categoriesProvider = FutureProvider.family<List<Category>, String>((
   return result.fold((failure) => throw failure, (value) => value);
 });
 
-typedef ReportQuery = ({String shopId, DateTime anchor});
+class ReportQuery {
+  ReportQuery({required this.shopId, required DateTime anchor})
+    : anchor = DateTime(anchor.year, anchor.month, anchor.day);
+
+  final String shopId;
+  final DateTime anchor;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ReportQuery && other.shopId == shopId && other.anchor == anchor;
+
+  @override
+  int get hashCode => Object.hash(shopId, anchor);
+}
+
 final weeklyReportProvider = FutureProvider.family<WeeklyReport, ReportQuery>((
   ref,
   query,
 ) async {
   final result = await ref.watch(getReportProvider)(query.shopId, query.anchor);
+  return result.fold((failure) => throw failure, (value) => value);
+});
+
+final salesHistoryProvider = FutureProvider.family<List<SaleSummary>, String?>((
+  ref,
+  shopId,
+) async {
+  final result = await ref.watch(listSalesProvider)(shopId: shopId);
   return result.fold((failure) => throw failure, (value) => value);
 });
 
@@ -349,7 +410,8 @@ final dashboardProvider = FutureProvider<DashboardSummary>((ref) async {
   final reports = <String, WeeklyReport>{};
   for (final shop in shops) {
     final report = await ref.watch(
-      weeklyReportProvider((shopId: shop.id, anchor: DateTime.now())).future,
+      weeklyReportProvider(ReportQuery(shopId: shop.id, anchor: DateTime.now()))
+          .future,
     );
     reports[shop.id] = report;
     profit += report.profit;

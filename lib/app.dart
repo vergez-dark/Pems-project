@@ -9,6 +9,7 @@ import 'features/backup/presentation/backup_page.dart';
 import 'features/catalog/presentation/catalog_page.dart';
 import 'features/reports/presentation/reports_page.dart';
 import 'features/sales/presentation/quick_sale_page.dart';
+import 'features/sales/presentation/sales_page.dart';
 import 'features/settings/domain/app_settings.dart';
 import 'features/settings/presentation/settings_page.dart';
 import 'features/security/presentation/security_gate.dart';
@@ -29,7 +30,8 @@ final routerProvider = Provider<GoRouter>(
           GoRoute(path: '/dashboard', builder: (_, _) => const DashboardPage()),
           GoRoute(path: '/shops', builder: (_, _) => const ShopsPage()),
           GoRoute(path: '/catalog', builder: (_, _) => const CatalogPage()),
-          GoRoute(path: '/sales', builder: (_, _) => const QuickSalePage()),
+          GoRoute(path: '/sales', builder: (_, _) => const SalesPage()),
+          GoRoute(path: '/sales/new', builder: (_, _) => const QuickSalePage()),
           GoRoute(path: '/reports', builder: (_, _) => const ReportsPage()),
         ],
       ),

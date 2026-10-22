@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pasora/core/error/result.dart';
 import 'package:pasora/features/security/data/device_security_repository.dart';
@@ -38,6 +39,28 @@ void main() {
     expect(session.accessTokenExpiresAt, now.add(accessTokenLifetime));
     expect(session.refreshTokenExpiresAt, now.add(refreshTokenLifetime));
     expect(_success(await repo.hasCredentials()), isTrue);
+  });
+
+  test('réessaie si le canal Android des préférences est transitoirement indisponible', () async {
+    final prefs = await SharedPreferences.getInstance();
+    var attempts = 0;
+    final repo = DeviceSecurityRepository(
+      preferencesLoader: () async {
+        attempts++;
+        if (attempts < 3) {
+          throw PlatformException(
+            code: 'channel-error',
+            message: 'Unable to establish connection on channel.',
+          );
+        }
+        return prefs;
+      },
+      retryDelay: (_) async {},
+      passwordIterations: 20,
+    );
+
+    expect(_success(await repo.hasCredentials()), isFalse);
+    expect(attempts, 3);
   });
 
   test('refuse de se connecter avec un mot de passe incorrect', () async {

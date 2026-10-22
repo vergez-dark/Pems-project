@@ -9,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/pems_components.dart';
 import '../../../core/widgets/state_views.dart';
+import '../../inventory/presentation/stock_details_sheet.dart';
 import '../../shops/domain/shop.dart';
 import '../../shops/presentation/shop_detail_page.dart';
 
@@ -173,13 +174,10 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      DropdownButtonFormField<String?>(
-                        initialValue: _shopId,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Filtrer par point de vente',
-                          prefixIcon: Icon(Icons.storefront_outlined),
-                        ),
+                      PemsDropdownField<String?>(
+                        value: _shopId,
+                        label: 'Filtrer par point de vente',
+                        leadingIcon: Icons.storefront_outlined,
                         items: [
                           DropdownMenuItem<String?>(
                             value: null,
@@ -348,7 +346,25 @@ class _CatalogCard extends ConsumerWidget {
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onTap: () => context.push('/shops/${record.shop.id}'),
+        onTap: () => StockDetailsSheet.show(
+          context,
+          shop: record.shop,
+          item: item,
+          onAddStock: () {
+            Future<void>.delayed(const Duration(milliseconds: 220), () async {
+              if (!context.mounted) return;
+              await showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                builder: (_) =>
+                    StockFormSheet(shopId: record.shop.id, item: item),
+              );
+              ref.invalidate(globalCatalogProvider);
+              ref.invalidate(stockEntriesProvider(item.variant.id));
+            });
+          },
+        ),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(

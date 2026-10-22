@@ -8,6 +8,9 @@ if (Select-String -Path "pubspec.yaml" -Pattern '^\s*build_runner:' -Quiet) {
   dart run build_runner build --delete-conflicting-outputs
 }
 dart format --output=none --set-exit-if-changed lib test
+if ($LASTEXITCODE -ne 0) {
+  throw "Formatage requis : lancez 'dart format lib test', puis relancez le script."
+}
 flutter analyze
 flutter test
 flutter build apk --release

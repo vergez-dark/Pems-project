@@ -7,6 +7,7 @@ import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/pems_components.dart';
 import '../../../core/widgets/state_views.dart';
+import '../../catalog/presentation/photo_source_sheet.dart';
 import '../domain/shop.dart';
 
 class ShopsPage extends ConsumerStatefulWidget {
@@ -248,15 +249,11 @@ class _ShopNetworkCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer
-                        .withValues(alpha: .38),
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: const Icon(Icons.domain_outlined),
+                PemsPhoto(
+                  photoPath: shop.photoPath,
+                  width: 52,
+                  height: 52,
+                  borderRadius: 14,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -277,11 +274,10 @@ class _ShopNetworkCard extends StatelessWidget {
                       ? AppColors.muted
                       : AppColors.profit,
                 ),
-                PopupMenuButton<String>(
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'open', child: Text('Ouvrir')),
-                  ],
-                  onSelected: (_) => context.push('/shops/${shop.id}'),
+                IconButton(
+                  tooltip: 'Ouvrir ${shop.name}',
+                  onPressed: () => context.push('/shops/${shop.id}'),
+                  icon: const Icon(Icons.chevron_right_rounded),
                 ),
               ],
             ),
@@ -366,7 +362,24 @@ class _ShopFormDialogState extends ConsumerState<ShopFormDialog> {
       widget.shop?.compensationType ?? CompensationType.none;
   late CompensationBasis _basis =
       widget.shop?.compensationBasis ?? CompensationBasis.profit;
+  late String? _photo = widget.shop?.photoPath;
   bool _saving = false;
+  bool _pickingPhoto = false;
+
+  Future<void> _pickPhoto() async {
+    final source = await showPemsPhotoSourceSheet(context);
+    if (!mounted || source == null) return;
+    setState(() => _pickingPhoto = true);
+    final result = await ref.read(pickPhotoProvider)(source: source);
+    if (!mounted) return;
+    setState(() => _pickingPhoto = false);
+    result.fold(
+      (failure) => showMessage(context, failure.message, error: true),
+      (path) {
+        if (path != null) setState(() => _photo = path);
+      },
+    );
+  }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
@@ -377,6 +390,7 @@ class _ShopFormDialogState extends ConsumerState<ShopFormDialog> {
       name: _name.text.trim(),
       sellerName: _seller.text.trim(),
       whatsapp: _phone.text.trim(),
+      photoPath: _photo,
       compensationType: _type,
       percentageRate: _type == CompensationType.none
           ? 0
@@ -394,6 +408,12 @@ class _ShopFormDialogState extends ConsumerState<ShopFormDialog> {
         ref.invalidate(shopsProvider);
         ref.invalidate(dashboardProvider);
         ref.invalidate(globalCatalogProvider);
+        showMessage(
+          context,
+          widget.shop == null
+              ? 'Boutique créée avec succès.'
+              : 'Boutique mise à jour.',
+        );
         Navigator.pop(context);
       },
     );
@@ -412,6 +432,66 @@ class _ShopFormDialogState extends ConsumerState<ShopFormDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Row(
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      PemsPhoto(
+                        photoPath: _photo,
+                        width: 86,
+                        height: 86,
+                        borderRadius: 20,
+                      ),
+                      Positioned(
+                        right: -6,
+                        bottom: -6,
+                        child: IconButton.filled(
+                          onPressed: _pickingPhoto ? null : _pickPhoto,
+                          tooltip: 'Choisir une photo',
+                          icon: _pickingPhoto
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.photo_camera_outlined),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Photo de la boutique',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Facultative • une illustration est affichée par défaut.',
+                          style: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                        if (_photo != null)
+                          TextButton.icon(
+                            onPressed: () => setState(() => _photo = null),
+                            icon: const Icon(Icons.delete_outline, size: 18),
+                            label: const Text('Retirer'),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
               TextFormField(
                 controller: _name,
                 decoration: const InputDecoration(
@@ -437,20 +517,34 @@ class _ShopFormDialogState extends ConsumerState<ShopFormDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              DropdownButtonFormField<CompensationType>(
-                initialValue: _type,
-                decoration: const InputDecoration(labelText: 'Rémunération'),
-                items: const [
-                  DropdownMenuItem(
-                    value: CompensationType.none,
-                    child: Text('Sans pourcentage'),
-                  ),
-                  DropdownMenuItem(
-                    value: CompensationType.percentage,
-                    child: Text('À pourcentage'),
-                  ),
-                ],
-                onChanged: (value) => setState(() => _type = value!),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Rémunération',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<CompensationType>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(
+                      value: CompensationType.none,
+                      label: Text('Sans %'),
+                      icon: Icon(Icons.remove_circle_outline),
+                    ),
+                    ButtonSegment(
+                      value: CompensationType.percentage,
+                      label: Text('Pourcentage'),
+                      icon: Icon(Icons.percent_rounded),
+                    ),
+                  ],
+                  selected: {_type},
+                  onSelectionChanged: (selection) =>
+                      setState(() => _type = selection.first),
+                ),
               ),
               if (_type == CompensationType.percentage) ...[
                 const SizedBox(height: 12),

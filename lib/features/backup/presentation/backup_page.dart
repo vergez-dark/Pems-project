@@ -34,8 +34,10 @@ class _BackupPageState extends ConsumerState<BackupPage> {
       if (mounted) {
         showMessage(
           context,
-          drive
+          record.status == BackupStatus.uploaded
               ? 'Sauvegarde envoyée sur Google Drive.'
+              : drive
+              ? 'Sauvegarde locale créée. Envoi Drive indisponible.'
               : 'Sauvegarde locale créée.',
         );
       }

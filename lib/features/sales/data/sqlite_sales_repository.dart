@@ -1,4 +1,5 @@
 import '../../../core/database/app_database.dart';
+import '../../../core/database/database_write_failure.dart';
 import '../../../core/error/result.dart';
 import '../domain/sale.dart';
 import '../domain/sales_repository.dart';
@@ -103,7 +104,7 @@ class SqliteSalesRepository implements SalesRepository {
       return Success(sale);
     } catch (error) {
       final message = error is StateError ? error.message : 'Vente impossible.';
-      return Failure(AppFailure(message, cause: error));
+      return Failure(databaseWriteFailure('sales.record', message, error));
     }
   }
 
@@ -145,7 +146,9 @@ class SqliteSalesRepository implements SalesRepository {
       });
       return const Success(null);
     } catch (error) {
-      return Failure(AppFailure('Annulation impossible.', cause: error));
+      return Failure(
+        databaseWriteFailure('sales.cancel', 'Annulation impossible.', error),
+      );
     }
   }
 
@@ -183,6 +186,39 @@ class SqliteSalesRepository implements SalesRepository {
       return Success(rows.map(_map).toList());
     } catch (error) {
       return Failure(AppFailure('Ventes indisponibles.', cause: error));
+    }
+  }
+
+  @override
+  Future<Result<List<SaleSummary>>> list({String? shopId}) async {
+    try {
+      final rows = await (await database.instance).rawQuery('''
+        SELECT s.*, sh.name AS shop_name, p.name AS product_name,
+          v.size AS variant_size, v.color AS variant_color
+        FROM sales s
+        JOIN shops sh ON sh.id = s.shop_id
+        JOIN variants v ON v.id = s.variant_id
+        JOIN products p ON p.id = v.product_id
+        ${shopId == null ? '' : 'WHERE s.shop_id = ?'}
+        ORDER BY s.date DESC, s.id DESC
+        ''', shopId == null ? const [] : [shopId]);
+      return Success(
+        rows
+            .map(
+              (row) => SaleSummary(
+                sale: _map(row),
+                shopName: row['shop_name']! as String,
+                productName: row['product_name']! as String,
+                size: row['variant_size']! as String,
+                color: row['variant_color']! as String,
+              ),
+            )
+            .toList(growable: false),
+      );
+    } catch (error) {
+      return Failure(
+        AppFailure('Historique des ventes indisponible.', cause: error),
+      );
     }
   }
 }

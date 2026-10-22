@@ -8,6 +8,7 @@ class Shop {
     required this.name,
     this.sellerName = '',
     this.whatsapp = '',
+    this.photoPath,
     this.compensationType = CompensationType.none,
     this.percentageRate = 0,
     this.compensationBasis = CompensationBasis.profit,
@@ -20,6 +21,7 @@ class Shop {
   final String name;
   final String sellerName;
   final String whatsapp;
+  final String? photoPath;
   final CompensationType compensationType;
   final int percentageRate;
   final CompensationBasis compensationBasis;
@@ -31,6 +33,7 @@ class Shop {
     String? name,
     String? sellerName,
     String? whatsapp,
+    String? photoPath,
     CompensationType? compensationType,
     int? percentageRate,
     CompensationBasis? compensationBasis,
@@ -41,6 +44,7 @@ class Shop {
     name: name ?? this.name,
     sellerName: sellerName ?? this.sellerName,
     whatsapp: whatsapp ?? this.whatsapp,
+    photoPath: photoPath ?? this.photoPath,
     compensationType: compensationType ?? this.compensationType,
     percentageRate: percentageRate ?? this.percentageRate,
     compensationBasis: compensationBasis ?? this.compensationBasis,

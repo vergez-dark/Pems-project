@@ -53,8 +53,13 @@ class ZipBackupRepository implements BackupRepository {
       String? driveId;
       var status = BackupStatus.local;
       if (uploadToDrive) {
-        driveId = await drive.upload(destination, name);
-        status = BackupStatus.uploaded;
+        try {
+          driveId = await drive.upload(destination, name);
+          status = BackupStatus.uploaded;
+        } catch (_) {
+          // Une connexion Google absente ne doit ni perdre la copie locale ni
+          // relancer une sauvegarde ZIP à chaque démarrage de l’application.
+        }
       }
       final record = BackupRecord(
         id: id,
@@ -89,7 +94,7 @@ class ZipBackupRepository implements BackupRepository {
       final rows = await db.query('backup_records', orderBy: 'date DESC');
       final local = rows.map(_fromMap).toList();
       try {
-        final remote = await drive.list();
+        final remote = await drive.list().timeout(const Duration(seconds: 8));
         final knownIds = local.map((item) => item.driveFileId).toSet();
         for (final file in remote) {
           if (file.id == null || knownIds.contains(file.id)) continue;

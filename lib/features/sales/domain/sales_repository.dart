@@ -17,6 +17,7 @@ abstract interface class SalesRepository {
     DateTime start,
     DateTime endExclusive,
   );
+  Future<Result<List<SaleSummary>>> list({String? shopId});
 }
 
 class RecordSale {
@@ -52,4 +53,11 @@ class CancelSale {
   const CancelSale(this.repository);
   final SalesRepository repository;
   Future<Result<void>> call(String saleId) => repository.cancel(saleId);
+}
+
+class ListSales {
+  const ListSales(this.repository);
+  final SalesRepository repository;
+  Future<Result<List<SaleSummary>>> call({String? shopId}) =>
+      repository.list(shopId: shopId);
 }

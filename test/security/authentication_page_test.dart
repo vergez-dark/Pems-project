@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -72,6 +74,8 @@ void main() {
       expect(find.text('Bienvenue sur PeMS Store'), findsOneWidget);
       expect(find.text('Se connecter'), findsOneWidget);
       expect(find.text('Mot de passe oublié ?'), findsOneWidget);
+      expect(find.textContaining('Accès gestionnaire restreint'), findsNothing);
+      expect(find.textContaining('Renouvellement automatique'), findsNothing);
       expect(find.textContaining('ex: jean.dupont'), findsNothing);
       expect(tester.takeException(), isNull);
     },
@@ -148,6 +152,7 @@ void main() {
         ),
         shopsProvider.overrideWith((ref) async => []),
         globalCatalogProvider.overrideWith((ref) async => []),
+        salesHistoryProvider(null).overrideWith((ref) async => []),
         backupsProvider.overrideWith((ref) async => []),
       ],
     );
@@ -157,6 +162,60 @@ void main() {
         child: const PemsStoreApp(),
       ),
     );
+    await _pumpApplicationFrames(tester);
+
+    expect(find.text('Se connecter'), findsOneWidget);
+    expect(
+      container.read(authControllerProvider).value?.status,
+      AuthStatus.locked,
+    );
+    final signIn = await tester.runAsync(
+      () => container
+          .read(authControllerProvider.notifier)
+          .signIn(
+            identifier: 'proprietaire',
+            password: 'MotDePasse!42',
+            rememberMe: true,
+          ),
+    );
+    signIn!.fold((failure) => fail(failure.message), (_) => null);
+    await _pumpApplicationFrames(tester);
+    final picker = Completer<void>();
+    final externalActivity = container.read(externalActivityGuardProvider);
+    final pickerFuture = externalActivity.run(() => picker.future);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await _pumpApplicationFrames(tester);
+    expect(
+      container.read(authControllerProvider).value?.status,
+      AuthStatus.authenticated,
+      reason: 'Le sélecteur système ne doit pas fermer le formulaire en cours.',
+    );
+    picker.complete();
+    await pickerFuture;
+    await _pumpApplicationFrames(tester);
+    expect(
+      container.read(authControllerProvider).value?.status,
+      AuthStatus.authenticated,
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await _pumpApplicationFrames(tester);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await _pumpApplicationFrames(tester);
+    expect(
+      container.read(authControllerProvider).value?.status,
+      AuthStatus.locked,
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final resumed = await tester.runAsync(
+      () => container
+          .read(authControllerProvider.notifier)
+          .signIn(
+            identifier: 'proprietaire',
+            password: 'MotDePasse!42',
+            rememberMe: true,
+          ),
+    );
+    resumed!.fold((failure) => fail(failure.message), (_) => null);
     await _pumpApplicationFrames(tester);
 
     final router = container.read(routerProvider);
@@ -178,6 +237,30 @@ void main() {
         reason: 'La route $route ne doit produire aucune exception.',
       );
     }
+
+    const deviceLockChannel = MethodChannel('pems.store/device_lock');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      deviceLockChannel,
+      (_) async => false,
+    );
+    final sleepingPicker = Completer<void>();
+    final sleepingPickerFuture = externalActivity.run(
+      () => sleepingPicker.future,
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await _pumpApplicationFrames(tester);
+    expect(
+      container.read(authControllerProvider).value?.status,
+      AuthStatus.locked,
+      reason: 'La mise en veille du téléphone reste protégée.',
+    );
+    sleepingPicker.complete();
+    await sleepingPickerFuture;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      deviceLockChannel,
+      null,
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpWidget(const SizedBox.shrink());
     container.dispose();
     await tester.pump();

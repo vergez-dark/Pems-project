@@ -162,7 +162,7 @@ class _DashboardContent extends StatelessWidget {
               icon: Icons.point_of_sale_outlined,
               label: '+ Vente',
               selected: true,
-              onTap: () => context.go('/sales'),
+              onTap: () => context.push('/sales/new'),
             ),
             const SizedBox(width: 8),
             PemsActionTile(

@@ -11,7 +11,11 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/pems_components.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../catalog/domain/catalog_entities.dart';
+import '../../catalog/presentation/photo_source_sheet.dart';
 import '../../inventory/domain/stock_entry.dart';
+import '../../inventory/presentation/stock_details_sheet.dart';
+import '../../sales/domain/sale.dart';
+import '../../sales/presentation/sale_details_sheet.dart';
 import '../../shops/domain/shop.dart';
 import 'shops_page.dart';
 
@@ -46,23 +50,98 @@ class ShopDetailPage extends ConsumerWidget {
           length: 3,
           child: Scaffold(
             appBar: AppBar(
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              title: Row(
                 children: [
-                  Text(shop.name),
-                  if (shop.sellerName.isNotEmpty)
-                    Text(
-                      shop.sellerName,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
+                  PemsPhoto(
+                    photoPath: shop.photoPath,
+                    width: 40,
+                    height: 40,
+                    borderRadius: 11,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(shop.name),
+                        if (shop.sellerName.isNotEmpty)
+                          Text(
+                            shop.sellerName,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                      ],
                     ),
+                  ),
                 ],
               ),
               actions: [
-                PopupMenuButton<String>(
-                  onSelected: (value) async {
+                IconButton(
+                  tooltip: 'Actions de la boutique',
+                  icon: const Icon(Icons.more_horiz_rounded),
+                  onPressed: () async {
+                    final value = await showModalBottomSheet<String>(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      builder: (sheetContext) {
+                        final scheme = Theme.of(sheetContext).colorScheme;
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: scheme.surface,
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(28),
+                            ),
+                          ),
+                          child: SafeArea(
+                            top: false,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                14,
+                                18,
+                                14,
+                                22,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Actions de la boutique',
+                                    style: Theme.of(sheetContext)
+                                        .textTheme
+                                        .titleLarge,
+                                  ),
+                                  const SizedBox(height: 14),
+                                  ListTile(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    tileColor: scheme.surfaceContainerLow,
+                                    leading: const Icon(Icons.edit_outlined),
+                                    title: const Text('Modifier'),
+                                    onTap: () =>
+                                        Navigator.pop(sheetContext, 'edit'),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ListTile(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    tileColor: scheme.surfaceContainerLow,
+                                    leading: const Icon(Icons.archive_outlined),
+                                    title: const Text('Archiver'),
+                                    onTap: () =>
+                                        Navigator.pop(sheetContext, 'archive'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                    if (!context.mounted) return;
                     if (value == 'edit') {
                       await showDialog<void>(
                         context: context,
@@ -78,27 +157,12 @@ class ShopDetailPage extends ConsumerWidget {
                         (f) => showMessage(context, f.message, error: true),
                         (_) {
                           ref.invalidate(shopsProvider);
+                          showMessage(context, 'Boutique archivée.');
                           context.pop();
                         },
                       );
                     }
                   },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: ListTile(
-                        leading: Icon(Icons.edit_outlined),
-                        title: Text('Modifier'),
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'archive',
-                      child: ListTile(
-                        leading: Icon(Icons.archive_outlined),
-                        title: Text('Archiver'),
-                      ),
-                    ),
-                  ],
                 ),
               ],
               bottom: const TabBar(
@@ -160,65 +224,85 @@ class _StockTab extends ConsumerWidget {
                   final item = items[index];
                   final low = item.variant.stockQuantity <= 3;
                   return Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Row(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child:
-                                item.product.photoPath != null &&
-                                    File(item.product.photoPath!).existsSync()
-                                ? Image.file(
-                                    File(item.product.photoPath!),
-                                    width: 64,
-                                    height: 64,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Container(
-                                    width: 64,
-                                    height: 64,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primaryContainer,
-                                    child: const Icon(Icons.checkroom_rounded),
-                                  ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item.product.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                Text(
-                                  '${item.categoryName} • ${item.variant.size} • ${item.variant.color}',
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  '${item.variant.stockQuantity} en stock',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    color: low
-                                        ? AppColors.warning
-                                        : AppColors.profit,
-                                  ),
-                                ),
-                              ],
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () => StockDetailsSheet.show(
+                        context,
+                        shop: shop,
+                        item: item,
+                        onAddStock: () {
+                          Future<void>.delayed(
+                            const Duration(milliseconds: 220),
+                            () {
+                              if (context.mounted) {
+                                _showStockForm(context, shop.id, item);
+                              }
+                            },
+                          );
+                        },
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child:
+                                  item.product.photoPath != null &&
+                                      File(item.product.photoPath!).existsSync()
+                                  ? Image.file(
+                                      File(item.product.photoPath!),
+                                      width: 64,
+                                      height: 64,
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Container(
+                                      width: 64,
+                                      height: 64,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primaryContainer,
+                                      child: const Icon(
+                                        Icons.checkroom_rounded,
+                                      ),
+                                    ),
                             ),
-                          ),
-                          IconButton.filledTonal(
-                            onPressed: () =>
-                                _showStockForm(context, shop.id, item),
-                            icon: const Icon(Icons.add_box_outlined),
-                            tooltip: 'Entrée de stock',
-                          ),
-                        ],
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.product.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${item.categoryName} • ${item.variant.size} • ${item.variant.color}',
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    '${item.variant.stockQuantity} en stock',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      color: low
+                                          ? AppColors.warning
+                                          : AppColors.profit,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton.filledTonal(
+                              onPressed: () =>
+                                  _showStockForm(context, shop.id, item),
+                              icon: const Icon(Icons.add_box_outlined),
+                              tooltip: 'Entrée de stock',
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -259,18 +343,15 @@ class _SalesTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final catalog = ref.watch(catalogProvider(shop.id));
-    final report = ref.watch(
-      weeklyReportProvider((shopId: shop.id, anchor: DateTime.now())),
-    );
+    final reportQuery = ReportQuery(shopId: shop.id, anchor: DateTime.now());
+    final report = ref.watch(weeklyReportProvider(reportQuery));
     return Stack(
       children: [
         report.when(
           loading: () => const LoadingCards(),
           error: (error, _) => ErrorState(
             error: error,
-            onRetry: () => ref.invalidate(
-              weeklyReportProvider((shopId: shop.id, anchor: DateTime.now())),
-            ),
+            onRetry: () => ref.invalidate(weeklyReportProvider(reportQuery)),
           ),
           data: (value) => value.sales.isEmpty
               ? const EmptyState(
@@ -284,19 +365,32 @@ class _SalesTab extends ConsumerWidget {
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (_, index) {
                     final sale = value.sales[index];
+                    final matchingItem = catalog.value
+                        ?.where((item) => item.variant.id == sale.variantId)
+                        .firstOrNull;
+                    final summary = SaleSummary(
+                      sale: sale,
+                      shopName: shop.name,
+                      productName:
+                          matchingItem?.product.name ?? 'Article vendu',
+                      size: matchingItem?.variant.size ?? '—',
+                      color: matchingItem?.variant.color ?? '—',
+                    );
                     return Card(
                       child: ListTile(
+                        onTap: () => SaleDetailsSheet.show(context, summary),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 8,
                         ),
                         leading: CircleAvatar(child: Text('${sale.quantity}×')),
                         title: Text(
-                          formatMoney(sale.revenue),
+                          matchingItem?.product.name ??
+                              formatMoney(sale.revenue),
                           style: const TextStyle(fontWeight: FontWeight.w900),
                         ),
                         subtitle: Text(
-                          '${formatDay(sale.date)} • bénéfice ${formatMoney(sale.profit)}',
+                          '${formatMoney(sale.revenue)} • ${formatDay(sale.date)}',
                         ),
                         trailing: IconButton(
                           icon: const Icon(Icons.undo_rounded),
@@ -335,11 +429,10 @@ class _SalesTab extends ConsumerWidget {
                                 ref.invalidate(catalogProvider(shop.id));
                                 ref.invalidate(globalCatalogProvider);
                                 ref.invalidate(
-                                  weeklyReportProvider((
-                                    shopId: shop.id,
-                                    anchor: DateTime.now(),
-                                  )),
+                                  weeklyReportProvider(reportQuery),
                                 );
+                                ref.invalidate(salesHistoryProvider(null));
+                                ref.invalidate(salesHistoryProvider(shop.id));
                                 ref.invalidate(dashboardProvider);
                               },
                             );
@@ -384,16 +477,13 @@ class _ReportTab extends ConsumerWidget {
   final Shop shop;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final report = ref.watch(
-      weeklyReportProvider((shopId: shop.id, anchor: DateTime.now())),
-    );
+    final reportQuery = ReportQuery(shopId: shop.id, anchor: DateTime.now());
+    final report = ref.watch(weeklyReportProvider(reportQuery));
     return report.when(
       loading: () => const LoadingCards(),
       error: (error, _) => ErrorState(
         error: error,
-        onRetry: () => ref.invalidate(
-          weeklyReportProvider((shopId: shop.id, anchor: DateTime.now())),
-        ),
+        onRetry: () => ref.invalidate(weeklyReportProvider(reportQuery)),
       ),
       data: (value) => ListView(
         padding: const EdgeInsets.all(20),
@@ -690,6 +780,12 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
         ref.invalidate(globalCatalogProvider);
         ref.invalidate(categoriesProvider(widget.shopId));
         ref.invalidate(dashboardProvider);
+        showMessage(
+          context,
+          isUpdate
+              ? 'Article et stock mis à jour.'
+              : 'Article et stock initial enregistrés.',
+        );
       },
     );
   }
@@ -743,10 +839,17 @@ class _ProductCreationPageState extends ConsumerState<ProductCreationPage> {
                   children: [
                     InkWell(
                       onTap: () async {
-                        final result = await ref.read(pickPhotoProvider)();
+                        final source = await showPemsPhotoSourceSheet(context);
+                        if (!mounted || source == null) return;
+                        final result = await ref.read(pickPhotoProvider)(
+                          source: source,
+                        );
+                        if (!mounted) return;
                         result.fold(
                           (f) => showMessage(context, f.message, error: true),
-                          (path) => setState(() => _photo = path),
+                          (path) {
+                            if (path != null) setState(() => _photo = path);
+                          },
                         );
                       },
                       borderRadius: BorderRadius.circular(16),
@@ -1096,7 +1199,9 @@ class _StockFormSheetState extends ConsumerState<StockFormSheet> {
       (_) {
         ref.invalidate(catalogProvider(widget.shopId));
         ref.invalidate(globalCatalogProvider);
+        ref.invalidate(stockEntriesProvider(widget.item.variant.id));
         ref.invalidate(dashboardProvider);
+        showMessage(context, 'Stock ajouté avec succès.');
         Navigator.pop(context);
       },
     );
@@ -1266,8 +1371,12 @@ class _SaleFormSheetState extends ConsumerState<SaleFormSheet> {
       ref.invalidate(catalogProvider(widget.shop.id));
       ref.invalidate(globalCatalogProvider);
       ref.invalidate(
-        weeklyReportProvider((shopId: widget.shop.id, anchor: DateTime.now())),
+        weeklyReportProvider(
+          ReportQuery(shopId: widget.shop.id, anchor: DateTime.now()),
+        ),
       );
+      ref.invalidate(salesHistoryProvider(null));
+      ref.invalidate(salesHistoryProvider(widget.shop.id));
       ref.invalidate(dashboardProvider);
       Navigator.pop(context);
       showMessage(context, 'Vente enregistrée.');
@@ -1297,12 +1406,10 @@ class _SaleFormSheetState extends ConsumerState<SaleFormSheet> {
                   ?.copyWith(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 18),
-            DropdownButtonFormField<CatalogItem>(
-              initialValue: _item,
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Article et variante',
-              ),
+            PemsDropdownField<CatalogItem>(
+              value: _item,
+              label: 'Article et variante',
+              leadingIcon: Icons.checkroom_outlined,
               items: available
                   .map(
                     (item) => DropdownMenuItem(

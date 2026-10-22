@@ -162,4 +162,32 @@ void main() {
       PaymentMethod.mobileMoney,
     );
   });
+
+  test('liste les ventes enrichies et permet le filtre boutique', () async {
+    await repository.record(
+      id: 'sale-history',
+      shopId: 's',
+      variantId: 'v',
+      quantity: 1,
+      unitSalePrice: 12000,
+      date: DateTime(2026, 1, 2),
+    );
+
+    final all = (await repository.list()).fold(
+      (failure) => fail(failure.message),
+      (sales) => sales,
+    );
+    final filtered = (await repository.list(shopId: 's'))
+        .fold((failure) => fail(failure.message), (sales) => sales);
+    final missing = (await repository.list(shopId: 'missing'))
+        .fold((failure) => fail(failure.message), (sales) => sales);
+
+    expect(all, hasLength(1));
+    expect(filtered, hasLength(1));
+    expect(missing, isEmpty);
+    expect(all.single.shopName, 'Boutique');
+    expect(all.single.productName, 'Run');
+    expect(all.single.size, '40');
+    expect(all.single.color, 'Noir');
+  });
 }

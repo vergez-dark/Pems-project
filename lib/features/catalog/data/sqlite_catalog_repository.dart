@@ -1,6 +1,5 @@
-import 'package:sqflite/sqflite.dart';
-
 import '../../../core/database/app_database.dart';
+import '../../../core/database/database_write_failure.dart';
 import '../../../core/error/result.dart';
 import '../domain/catalog_entities.dart';
 import '../domain/catalog_repository.dart';
@@ -37,15 +36,29 @@ class SqliteCatalogRepository implements CatalogRepository {
   @override
   Future<Result<void>> saveCategory(Category category) async {
     try {
-      await (await database.instance).insert('categories', {
-        'id': category.id,
-        'shop_id': category.shopId,
-        'name': category.name.trim(),
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      final db = await database.instance;
+      await db.transaction((txn) async {
+        final values = {
+          'id': category.id,
+          'shop_id': category.shopId,
+          'name': category.name.trim(),
+        };
+        final updated = await txn.update(
+          'categories',
+          values,
+          where: 'id = ?',
+          whereArgs: [category.id],
+        );
+        if (updated == 0) await txn.insert('categories', values);
+      });
       return const Success(null);
     } catch (error) {
       return Failure(
-        AppFailure('Impossible d’enregistrer la catégorie.', cause: error),
+        databaseWriteFailure(
+          'catalog.saveCategory',
+          'Impossible d’enregistrer la catégorie.',
+          error,
+        ),
       );
     }
   }
@@ -104,26 +117,52 @@ class SqliteCatalogRepository implements CatalogRepository {
     try {
       final db = await database.instance;
       await db.transaction((txn) async {
-        await txn.insert('products', {
+        final productValues = {
           'id': product.id,
           'shop_id': product.shopId,
           'category_id': product.categoryId,
           'name': product.name.trim(),
           'photo_path': product.photoPath,
           'notes': product.notes,
-        }, conflictAlgorithm: ConflictAlgorithm.replace);
-        await txn.insert('variants', {
+        };
+        final updatedProduct = await txn.update(
+          'products',
+          productValues,
+          where: 'id = ?',
+          whereArgs: [product.id],
+        );
+        if (updatedProduct == 0) {
+          await txn.insert('products', productValues);
+        }
+        final variantValues = {
           'id': variant.id,
           'product_id': variant.productId,
           'size': variant.size,
           'color': variant.color,
           'stock_quantity': variant.stockQuantity,
-        }, conflictAlgorithm: ConflictAlgorithm.replace);
+        };
+        final updatedVariant = await txn.update(
+          'variants',
+          {
+            'product_id': variant.productId,
+            'size': variant.size,
+            'color': variant.color,
+          },
+          where: 'id = ?',
+          whereArgs: [variant.id],
+        );
+        if (updatedVariant == 0) {
+          await txn.insert('variants', variantValues);
+        }
       });
       return const Success(null);
     } catch (error) {
       return Failure(
-        AppFailure('Impossible d’enregistrer l’article.', cause: error),
+        databaseWriteFailure(
+          'catalog.saveProduct',
+          'Impossible d’enregistrer l’article.',
+          error,
+        ),
       );
     }
   }
@@ -157,7 +196,11 @@ class SqliteCatalogRepository implements CatalogRepository {
       return const Success(null);
     } catch (error) {
       return Failure(
-        AppFailure('Impossible de modifier l’article.', cause: error),
+        databaseWriteFailure(
+          'catalog.updateProduct',
+          'Impossible de modifier l’article.',
+          error,
+        ),
       );
     }
   }

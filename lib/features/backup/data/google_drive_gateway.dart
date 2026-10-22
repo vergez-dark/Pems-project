@@ -13,10 +13,10 @@ class GoogleDriveGateway {
   final GoogleSignIn _signIn;
   final bool allowInteractive;
 
-  Future<drive.DriveApi> _api() async {
+  Future<drive.DriveApi> _api({bool interactive = true}) async {
     final account =
         await _signIn.signInSilently() ??
-        (allowInteractive ? await _signIn.signIn() : null);
+        (interactive && allowInteractive ? await _signIn.signIn() : null);
     if (account == null) throw StateError('Connexion Google annulée.');
     return drive.DriveApi(_GoogleAuthClient(await account.authHeaders));
   }
@@ -39,7 +39,9 @@ class GoogleDriveGateway {
   }
 
   Future<List<drive.File>> list() async {
-    final api = await _api();
+    // L'ouverture de l'historique ne doit jamais afficher la connexion Google.
+    // Une sauvegarde manuelle pourra toujours demander l'autorisation ensuite.
+    final api = await _api(interactive: false);
     final result = await api.files.list(
       spaces: 'appDataFolder',
       q: "name contains 'pasora-backup-' and trashed = false",

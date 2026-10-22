@@ -10,6 +10,16 @@ import '../domain/app_settings.dart';
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
+  Future<void> _saveSettings(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settings,
+    String message,
+  ) async {
+    await ref.read(settingsProvider.notifier).save(settings);
+    if (context.mounted) showMessage(context, message);
+  }
+
   Future<void> _changePassword(BuildContext context, WidgetRef ref) async {
     final values = await showDialog<({String current, String next})>(
       context: context,
@@ -49,26 +59,34 @@ class SettingsPage extends ConsumerWidget {
                 ListTile(
                   leading: const Icon(Icons.palette_outlined),
                   title: const Text('Thème'),
-                  trailing: DropdownButton<AppThemeMode>(
-                    value: value.themeMode,
-                    underline: const SizedBox.shrink(),
-                    items: const [
-                      DropdownMenuItem(
-                        value: AppThemeMode.system,
-                        child: Text('Système'),
-                      ),
-                      DropdownMenuItem(
-                        value: AppThemeMode.light,
-                        child: Text('Clair'),
-                      ),
-                      DropdownMenuItem(
-                        value: AppThemeMode.dark,
-                        child: Text('Sombre'),
-                      ),
-                    ],
-                    onChanged: (mode) => ref
-                        .read(settingsProvider.notifier)
-                        .save(value.copyWith(themeMode: mode)),
+                  trailing: SizedBox(
+                    width: 138,
+                    child: PemsDropdownField<AppThemeMode>(
+                      value: value.themeMode,
+                      items: const [
+                        DropdownMenuItem(
+                          value: AppThemeMode.system,
+                          child: Text('Système'),
+                        ),
+                        DropdownMenuItem(
+                          value: AppThemeMode.light,
+                          child: Text('Clair'),
+                        ),
+                        DropdownMenuItem(
+                          value: AppThemeMode.dark,
+                          child: Text('Sombre'),
+                        ),
+                      ],
+                      onChanged: (mode) {
+                        if (mode == null) return;
+                        _saveSettings(
+                          context,
+                          ref,
+                          value.copyWith(themeMode: mode),
+                          'Thème mis à jour.',
+                        );
+                      },
+                    ),
                   ),
                 ),
                 ListTile(
@@ -122,6 +140,14 @@ class SettingsPage extends ConsumerWidget {
                     await ref
                         .read(settingsProvider.notifier)
                         .save(value.copyWith(biometricEnabled: enabled));
+                    if (context.mounted) {
+                      showMessage(
+                        context,
+                        enabled
+                            ? 'Biométrie activée.'
+                            : 'Biométrie désactivée.',
+                      );
+                    }
                   },
                 ),
                 ListTile(
@@ -167,20 +193,28 @@ class SettingsPage extends ConsumerWidget {
                 ListTile(
                   leading: const Icon(Icons.warning_amber_outlined),
                   title: const Text('Seuil de stock bas'),
-                  trailing: DropdownButton<int>(
-                    value: value.lowStockThreshold,
-                    underline: const SizedBox.shrink(),
-                    items: [1, 2, 3, 5, 10]
-                        .map(
-                          (amount) => DropdownMenuItem(
-                            value: amount,
-                            child: Text('$amount paires'),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (amount) => ref
-                        .read(settingsProvider.notifier)
-                        .save(value.copyWith(lowStockThreshold: amount)),
+                  trailing: SizedBox(
+                    width: 138,
+                    child: PemsDropdownField<int>(
+                      value: value.lowStockThreshold,
+                      items: [1, 2, 3, 5, 10]
+                          .map(
+                            (amount) => DropdownMenuItem(
+                              value: amount,
+                              child: Text('$amount paires'),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (amount) {
+                        if (amount == null) return;
+                        _saveSettings(
+                          context,
+                          ref,
+                          value.copyWith(lowStockThreshold: amount),
+                          'Seuil de stock mis à jour.',
+                        );
+                      },
+                    ),
                   ),
                 ),
               ],

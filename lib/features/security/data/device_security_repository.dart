@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,6 +13,7 @@ import '../../../core/error/result.dart';
 import '../domain/security_repository.dart';
 
 typedef PreferencesLoader = Future<SharedPreferences> Function();
+typedef RetryDelay = Future<void> Function(Duration duration);
 typedef Clock = DateTime Function();
 typedef RandomBytes = List<int> Function(int length);
 
@@ -18,11 +21,14 @@ class DeviceSecurityRepository implements SecurityRepository {
   DeviceSecurityRepository({
     LocalAuthentication? localAuth,
     PreferencesLoader? preferencesLoader,
+    RetryDelay? retryDelay,
     Clock? clock,
     RandomBytes? randomBytes,
     this.passwordIterations = 120000,
   }) : _localAuth = localAuth ?? LocalAuthentication(),
        _preferencesLoader = preferencesLoader ?? SharedPreferences.getInstance,
+       _retryDelay =
+           retryDelay ?? ((duration) => Future<void>.delayed(duration)),
        _clock = clock ?? DateTime.now,
        _randomBytes = randomBytes ?? _secureRandomBytes;
 
@@ -39,6 +45,7 @@ class DeviceSecurityRepository implements SecurityRepository {
 
   final LocalAuthentication _localAuth;
   final PreferencesLoader _preferencesLoader;
+  final RetryDelay _retryDelay;
   final Clock _clock;
   final RandomBytes _randomBytes;
   final int passwordIterations;
@@ -47,7 +54,7 @@ class DeviceSecurityRepository implements SecurityRepository {
   @override
   Future<Result<bool>> hasCredentials() async {
     try {
-      final prefs = await _preferencesLoader();
+      final prefs = await _loadPreferences();
       return Success(_credentialsAreComplete(prefs));
     } catch (error) {
       return Failure(
@@ -59,7 +66,7 @@ class DeviceSecurityRepository implements SecurityRepository {
   @override
   Future<Result<String?>> savedIdentifier() async {
     try {
-      final prefs = await _preferencesLoader();
+      final prefs = await _loadPreferences();
       return Success(prefs.getString(_identifierKey));
     } catch (error) {
       return Failure(
@@ -77,7 +84,7 @@ class DeviceSecurityRepository implements SecurityRepository {
     final validation = _validateCredentials(identifier, password);
     if (validation != null) return Failure(validation);
     try {
-      final prefs = await _preferencesLoader();
+      final prefs = await _loadPreferences();
       if (_credentialsAreComplete(prefs)) {
         return const Failure(
           AppFailure('Un compte propriétaire existe déjà sur cet appareil.'),
@@ -122,7 +129,7 @@ class DeviceSecurityRepository implements SecurityRepository {
       );
     }
     try {
-      final prefs = await _preferencesLoader();
+      final prefs = await _loadPreferences();
       final verified = await _verifyCredentials(prefs, identifier, password);
       if (verified == null) {
         return const Failure(
@@ -144,7 +151,7 @@ class DeviceSecurityRepository implements SecurityRepository {
   @override
   Future<Result<AuthSession?>> restoreSession() async {
     try {
-      final prefs = await _preferencesLoader();
+      final prefs = await _loadPreferences();
       final record = _volatileSession ?? _readPersistedSession(prefs);
       if (record == null) return const Success(null);
       final passwordKey = _readPasswordKey(prefs);
@@ -171,7 +178,7 @@ class DeviceSecurityRepository implements SecurityRepository {
   @override
   Future<Result<AuthSession>> refreshSession() async {
     try {
-      final prefs = await _preferencesLoader();
+      final prefs = await _loadPreferences();
       final record = _volatileSession ?? _readPersistedSession(prefs);
       final passwordKey = _readPasswordKey(prefs);
       if (record == null ||
@@ -194,7 +201,7 @@ class DeviceSecurityRepository implements SecurityRepository {
   @override
   Future<Result<void>> signOut() async {
     try {
-      await _clearSession(await _preferencesLoader());
+      await _clearSession(await _loadPreferences());
       return const Success(null);
     } catch (error) {
       return Failure(AppFailure('Déconnexion impossible.', cause: error));
@@ -209,7 +216,7 @@ class DeviceSecurityRepository implements SecurityRepository {
     final passwordValidation = _validatePassword(newPassword);
     if (passwordValidation != null) return Failure(passwordValidation);
     try {
-      final prefs = await _preferencesLoader();
+      final prefs = await _loadPreferences();
       final identifier = prefs.getString(_identifierKey);
       if (identifier == null ||
           await _verifyCredentials(prefs, identifier, currentPassword) ==
@@ -276,7 +283,7 @@ class DeviceSecurityRepository implements SecurityRepository {
       return const Failure(AppFailure('Authentification annulée.'));
     }
     try {
-      final prefs = await _preferencesLoader();
+      final prefs = await _loadPreferences();
       final identifier = prefs.getString(_identifierKey);
       final passwordKey = _readPasswordKey(prefs);
       if (identifier == null || passwordKey == null) {
@@ -319,6 +326,41 @@ class DeviceSecurityRepository implements SecurityRepository {
       );
     }
     return Success(record.toDomain());
+  }
+
+  Future<SharedPreferences> _loadPreferences() async {
+    const maxAttempts = 3;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await _preferencesLoader();
+      } catch (error, stackTrace) {
+        final shouldRetry =
+            attempt < maxAttempts && _isTransientChannelError(error);
+        developer.log(
+          shouldRetry
+              ? 'Preferences channel unavailable; retrying ($attempt/$maxAttempts).'
+              : 'Unable to load local authentication preferences.',
+          name: 'pems.security',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        if (!shouldRetry) Error.throwWithStackTrace(error, stackTrace);
+        await _retryDelay(Duration(milliseconds: 150 * attempt));
+      }
+    }
+    throw StateError('Preferences loader exhausted its retry attempts.');
+  }
+
+  bool _isTransientChannelError(Object error) {
+    if (error is MissingPluginException) return true;
+    if (error is PlatformException) {
+      final details = '${error.code} ${error.message}'.toLowerCase();
+      return details.contains('channel-error') ||
+          details.contains('unable to establish connection on channel');
+    }
+    final details = error.toString().toLowerCase();
+    return details.contains('missingpluginexception') ||
+        details.contains('unable to establish connection on channel');
   }
 
   Future<AuthSession> _rotateSession(

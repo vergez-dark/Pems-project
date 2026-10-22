@@ -7,10 +7,10 @@ class AppDatabase {
     : _factory = factory ?? databaseFactory,
       _customPath = path;
 
-  static const schemaVersion = 3;
+  static const schemaVersion = 4;
   final DatabaseFactory _factory;
   final String? _customPath;
-  Database? _database;
+  Future<Database>? _databaseFuture;
 
   Future<String> get path async {
     if (_customPath != null) return _customPath;
@@ -18,13 +18,29 @@ class AppDatabase {
     return p.join(directory.path, 'pasora.sqlite');
   }
 
-  Future<Database> get instance async => _database ??= await _open();
+  Future<Database> get instance => _databaseFuture ??= _openAndCache();
+
+  Future<Database> _openAndCache() async {
+    try {
+      return await _open();
+    } catch (_) {
+      _databaseFuture = null;
+      rethrow;
+    }
+  }
 
   Future<Database> _open() async => _factory.openDatabase(
     await path,
     options: OpenDatabaseOptions(
       version: schemaVersion,
-      onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
+      // L’interface et la sauvegarde ouvrent parfois le même fichier avec des
+      // AppDatabase distincts. Avec l’instance partagée par défaut, fermer la
+      // sauvegarde ferme aussi la connexion conservée par l’interface.
+      singleInstance: false,
+      onConfigure: (db) async {
+        await db.execute('PRAGMA foreign_keys = ON');
+        await db.execute('PRAGMA busy_timeout = 5000');
+      },
       onCreate: (db, version) => _migrate(db, 0, version),
       onUpgrade: _migrate,
     ),
@@ -92,10 +108,14 @@ class AppDatabase {
         "ALTER TABLE sales ADD COLUMN payment_method TEXT NOT NULL DEFAULT 'cash'",
       );
     }
+    if (oldVersion < 4) {
+      await db.execute('ALTER TABLE shops ADD COLUMN photo_path TEXT');
+    }
   }
 
   Future<void> close() async {
-    await _database?.close();
-    _database = null;
+    final databaseFuture = _databaseFuture;
+    _databaseFuture = null;
+    if (databaseFuture != null) await (await databaseFuture).close();
   }
 }

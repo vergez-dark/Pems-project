@@ -26,3 +26,10 @@ class UpdateStockEntry {
   final InventoryRepository repository;
   Future<Result<void>> call(StockEntry entry) => repository.updateEntry(entry);
 }
+
+class ListStockEntries {
+  const ListStockEntries(this.repository);
+  final InventoryRepository repository;
+  Future<Result<List<StockEntry>>> call(String variantId) =>
+      repository.entriesForVariant(variantId);
+}

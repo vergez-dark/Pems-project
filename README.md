@@ -10,8 +10,8 @@ Application Android hors connexion de gestion de stock, ventes et rentabilité p
 
 L'APK universel signé est prêt à installer :
 
-- [Télécharger PeMS Store 1.0.0](dist/pems-store-v1.0.0.apk)
-- APK optimisés : [arm64-v8a](dist/pems-store-v1.0.0-arm64-v8a.apk), [armeabi-v7a](dist/pems-store-v1.0.0-armeabi-v7a.apk), [x86_64](dist/pems-store-v1.0.0-x86_64.apk)
+- [Télécharger PeMS Store 1.0.6](dist/pems-store-v1.0.6.apk)
+- APK optimisés : [arm64-v8a](dist/pems-store-v1.0.6-arm64-v8a.apk), [armeabi-v7a](dist/pems-store-v1.0.6-armeabi-v7a.apk), [x86_64](dist/pems-store-v1.0.6-x86_64.apk)
 
 Sur Android, autoriser ponctuellement l'installation depuis la source utilisée pour ouvrir le fichier. `arm64-v8a` convient à la grande majorité des téléphones récents ; l'APK universel est le choix simple si l'architecture est inconnue.
 
@@ -86,6 +86,7 @@ PowerShell :
 ```
 
 Les scripts résolvent les dépendances, lancent la génération de code si `build_runner` est présent, vérifient format/analyse/tests, construisent l'APK universel et les APK par ABI, puis les copient dans `dist/`.
+Si la vérification de format arrête la construction, lancez `dart format lib test`, puis relancez le script.
 
 ## Signature release
 
@@ -124,4 +125,4 @@ Le code suit `presentation → domain ← data`. Le domaine est du Dart pur ; l'
 
 ## Confidentialité
 
-PeMS Store ne possède aucun backend et n'intègre aucune télémétrie. Les données restent dans le sandbox Android ; seules les archives demandées sont envoyées dans `drive.appdata` du compte Google choisi. Les rapports vendeuse omettent volontairement achats et marges.
+PeMS Store ne possède aucun backend et n'intègre aucune télémétrie. Les données restent dans le sandbox Android. Les sauvegardes locales quotidiennes sont automatiques ; si Google Drive est configuré et autorisé, l'application peut aussi les envoyer dans l'espace privé `drive.appdata` du compte choisi. Une sauvegarde locale reste disponible si l'envoi Drive échoue. La restauration d'une archive PeMS reste une action manuelle. Depuis la version 1.0.5, la restauration automatique des données par Android lors d'une réinstallation est désactivée ; une mise à jour installée par-dessus l'application conserve normalement les données existantes. Les rapports vendeuse omettent volontairement achats et marges.

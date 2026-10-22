@@ -8,7 +8,10 @@ flutter pub get
 if grep -q 'build_runner:' pubspec.yaml; then
   dart run build_runner build --delete-conflicting-outputs
 fi
-dart format --output=none --set-exit-if-changed lib test
+if ! dart format --output=none --set-exit-if-changed lib test; then
+  echo "Formatage requis : lancez 'dart format lib test', puis relancez le script." >&2
+  exit 1
+fi
 flutter analyze
 flutter test
 flutter build apk --release
